@@ -3,13 +3,15 @@
 #[path = "panel_init.rs"]
 mod panel_init;
 
-use crate::cst816::Cst816Touch;
+use crate::drivers::{tca9554, touch::Cst816Touch};
 use core::ops::Range;
 use esp_hal::{
     delay::Delay,
     gpio::{Level, Output, OutputConfig},
     i2c::master::{Config as I2cConfig, I2c},
-    peripherals::Peripherals,
+    peripherals::{
+        GPIO10, GPIO11, GPIO21, GPIO4, GPIO40, GPIO41, GPIO42, GPIO45, GPIO46, GPIO5, I2C0, SPI2,
+    },
     spi::master::{Address, Command, Config as SpiConfig, DataMode, Spi},
     time::Rate,
     Blocking,
@@ -21,12 +23,6 @@ pub const LCD_HEIGHT: usize = 360;
 
 const PIXELS_PER_SPI_CHUNK: usize = 32;
 
-const TCA9554_ADDRESS: u8 = 0x20;
-const TCA9554_OUTPUT_REG: u8 = 0x01;
-const TCA9554_CONFIG_REG: u8 = 0x03;
-const LCD_RESET_BIT: u8 = 1 << 1;
-const TOUCH_RESET_BIT: u8 = 1 << 0;
-
 const LCD_OPCODE_WRITE_COMMAND: u8 = 0x02;
 const LCD_OPCODE_READ_COMMAND: u8 = 0x0B;
 const LCD_OPCODE_WRITE_COLOR: u8 = 0x32;
@@ -37,52 +33,53 @@ pub struct St77916Display<'d> {
     _backlight: Output<'d>,
 }
 
-pub fn init(peripherals: Peripherals) -> (St77916Display<'static>, Cst816Touch<'static>) {
-    // The board includes octal PSRAM. Slint needs a global allocator in no_std
-    // mode, and no Slint object is created before this initialization completes.
-    esp_alloc::psram_allocator!(
-        peripherals.PSRAM,
-        esp_hal::psram,
-        esp_hal::psram::PsramConfig {
-            mode: esp_hal::psram::PsramMode::OctalSpi,
-            ..Default::default()
-        }
-    );
+pub struct DisplayPeripherals<'d> {
+    pub i2c0: I2C0<'d>,
+    pub gpio11: GPIO11<'d>,
+    pub gpio10: GPIO10<'d>,
+    pub spi2: SPI2<'d>,
+    pub gpio40: GPIO40<'d>,
+    pub gpio46: GPIO46<'d>,
+    pub gpio45: GPIO45<'d>,
+    pub gpio42: GPIO42<'d>,
+    pub gpio41: GPIO41<'d>,
+    pub gpio21: GPIO21<'d>,
+    pub gpio5: GPIO5<'d>,
+    pub gpio4: GPIO4<'d>,
+}
+
+pub fn init(parts: DisplayPeripherals<'static>) -> (St77916Display<'static>, Cst816Touch<'static>) {
     let delay = Delay::new();
 
     let mut i2c = I2c::new(
-        peripherals.I2C0,
+        parts.i2c0,
         I2cConfig::default().with_frequency(Rate::from_khz(400)),
     )
     .unwrap()
-    .with_sda(peripherals.GPIO11)
-    .with_scl(peripherals.GPIO10);
+    .with_sda(parts.gpio11)
+    .with_scl(parts.gpio10);
 
-    i2c.write(TCA9554_ADDRESS, &[TCA9554_CONFIG_REG, 0x00])
-        .unwrap();
-    i2c.write(TCA9554_ADDRESS, &[TCA9554_OUTPUT_REG, 0x00])
-        .unwrap();
+    tca9554::configure(&mut i2c);
 
     // The LCD reset is controlled by TCA9554PWR EXIO2.
     delay.delay_millis(10);
-    i2c.write(TCA9554_ADDRESS, &[TCA9554_OUTPUT_REG, LCD_RESET_BIT])
-        .unwrap();
+    tca9554::write_output(&mut i2c, tca9554::LCD_RESET_BIT);
     delay.delay_millis(50);
 
     let spi = Spi::new(
-        peripherals.SPI2,
+        parts.spi2,
         // Use the low clock while probing the panel ID, then switch to 40 MHz.
         SpiConfig::default().with_frequency(Rate::from_khz(3_000)),
     )
     .unwrap()
-    .with_sck(peripherals.GPIO40)
-    .with_sio0(peripherals.GPIO46)
-    .with_sio1(peripherals.GPIO45)
-    .with_sio2(peripherals.GPIO42)
-    .with_sio3(peripherals.GPIO41);
+    .with_sck(parts.gpio40)
+    .with_sio0(parts.gpio46)
+    .with_sio1(parts.gpio45)
+    .with_sio2(parts.gpio42)
+    .with_sio3(parts.gpio41);
 
-    let cs = Output::new(peripherals.GPIO21, Level::High, OutputConfig::default());
-    let backlight = Output::new(peripherals.GPIO5, Level::High, OutputConfig::default());
+    let cs = Output::new(parts.gpio21, Level::High, OutputConfig::default());
+    let backlight = Output::new(parts.gpio5, Level::High, OutputConfig::default());
 
     let mut display = St77916Display {
         spi,
@@ -93,17 +90,12 @@ pub fn init(peripherals: Peripherals) -> (St77916Display<'static>, Cst816Touch<'
     display.initialize_panel(&delay).unwrap();
 
     // Keep LCD reset released while pulsing the touch reset on EXIO1.
-    i2c.write(TCA9554_ADDRESS, &[TCA9554_OUTPUT_REG, LCD_RESET_BIT])
-        .unwrap();
+    tca9554::write_output(&mut i2c, tca9554::LCD_RESET_BIT);
     delay.delay_millis(10);
-    i2c.write(
-        TCA9554_ADDRESS,
-        &[TCA9554_OUTPUT_REG, LCD_RESET_BIT | TOUCH_RESET_BIT],
-    )
-    .unwrap();
+    tca9554::write_output(&mut i2c, tca9554::LCD_RESET_BIT | tca9554::TOUCH_RESET_BIT);
     delay.delay_millis(50);
 
-    let touch = Cst816Touch::new(i2c, peripherals.GPIO4).unwrap();
+    let touch = Cst816Touch::new(i2c, parts.gpio4).unwrap();
     (display, touch)
 }
 

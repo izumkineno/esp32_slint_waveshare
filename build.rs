@@ -1,4 +1,6 @@
 fn main() {
+    println!("cargo:rerun-if-changed=ui/main.slint");
+    println!("cargo:rerun-if-changed=ui/fonts/NotoSansSC-UI.ttf");
     slint_build::compile_with_config(
         "ui/main.slint",
         slint_build::CompilerConfiguration::new()
