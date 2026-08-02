@@ -1,0 +1,300 @@
+component FpsBadge inherits Rectangle {
+    in property <int> value;
+
+    width: 72px;
+    height: 34px;
+    background: #e6eef7;
+    border-radius: 17px;
+
+    Text {
+        y: 3px;
+        width: parent.width;
+        text: value;
+        color: #25415f;
+        font-size: 16px;
+        font-weight: 600;
+        horizontal-alignment: center;
+    }
+
+    Text {
+        y: 20px;
+        width: parent.width;
+        text: "FPS";
+        color: #71839a;
+        font-size: 8px;
+        horizontal-alignment: center;
+    }
+}
+
+export component MainWindow inherits Window {
+    width: 360px;
+    height: 360px;
+    background: #05070b;
+
+    in-out property <int> touch-count: 0;
+    in-out property <int> fps: 0;
+    in-out property <string> status-text: "Ready";
+    private property <bool> animation-page: false;
+    callback clear-requested();
+
+    Rectangle {
+        x: 2px;
+        y: 2px;
+        width: 356px;
+        height: 356px;
+        background: #f4f7fb;
+        border-radius: 178px;
+        border-width: 3px;
+        border-color: #25415f;
+        clip: true;
+
+        if root.animation-page == false: Rectangle {
+            Text {
+                x: 0px;
+                y: 50px;
+                width: parent.width;
+                text: "SLINT / ESP32-S3";
+                color: #25415f;
+                font-size: 20px;
+                font-weight: 600;
+                horizontal-alignment: center;
+            }
+
+            FpsBadge {
+                x: 144px;
+                y: 8px;
+                value: root.fps;
+            }
+
+            Text {
+                x: 0px;
+                y: 78px;
+                width: parent.width;
+                text: "Touch dashboard";
+                color: #71839a;
+                font-size: 14px;
+                horizontal-alignment: center;
+            }
+
+            Rectangle {
+                x: 40px;
+                y: 116px;
+                width: 276px;
+                height: 102px;
+                background: #ffffff;
+                border-radius: 22px;
+                border-width: 1px;
+                border-color: #d8e1eb;
+
+                TouchArea {
+                    clicked => {
+                        root.touch-count += 1;
+                        root.status-text = "Touch received";
+                    }
+                }
+
+                Text {
+                    y: 17px;
+                    width: parent.width;
+                    text: "Touch count";
+                    color: #71839a;
+                    font-size: 14px;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    y: 38px;
+                    width: parent.width;
+                    text: root.touch-count;
+                    color: #14253a;
+                    font-size: 34px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+            }
+
+            Text {
+                x: 0px;
+                y: 232px;
+                width: parent.width;
+                text: root.status-text;
+                color: #25415f;
+                font-size: 14px;
+                horizontal-alignment: center;
+            }
+
+            Rectangle {
+                x: 48px;
+                y: 268px;
+                width: 104px;
+                height: 42px;
+                background: #25415f;
+                border-radius: 21px;
+
+                TouchArea {
+                    clicked => {
+                        root.touch-count = 0;
+                        root.status-text = "Ready";
+                        root.clear-requested();
+                    }
+                }
+
+                Text {
+                    width: parent.width;
+                    height: parent.height;
+                    text: "CLEAR";
+                    color: #ffffff;
+                    font-size: 13px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            Rectangle {
+                x: 164px;
+                y: 268px;
+                width: 148px;
+                height: 42px;
+                background: #4d7c9f;
+                border-radius: 21px;
+
+                TouchArea {
+                    clicked => {
+                        root.animation-page = true;
+                        root.status-text = "Animation";
+                    }
+                }
+
+                Text {
+                    width: parent.width;
+                    height: parent.height;
+                    text: "ANIMATE";
+                    color: #ffffff;
+                    font-size: 13px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        if root.animation-page: Rectangle {
+            Text {
+                x: 0px;
+                y: 50px;
+                width: parent.width;
+                text: "SLINT / MOTION";
+                color: #25415f;
+                font-size: 20px;
+                font-weight: 600;
+                horizontal-alignment: center;
+            }
+
+            FpsBadge {
+                x: 144px;
+                y: 8px;
+                value: root.fps;
+            }
+
+            Text {
+                x: 0px;
+                y: 78px;
+                width: parent.width;
+                text: "Software animation";
+                color: #71839a;
+                font-size: 14px;
+                horizontal-alignment: center;
+            }
+
+            stage := Rectangle {
+                x: 30px;
+                y: 110px;
+                width: 296px;
+                height: 126px;
+                background: #ffffff;
+                border-radius: 24px;
+                border-width: 1px;
+                border-color: #d8e1eb;
+                private property <angle> orbit-angle: (360deg * animation-tick() / 1600ms).mod(360deg);
+
+                Rectangle {
+                    x: 60px;
+                    y: 18px;
+                    width: 176px;
+                    height: 88px;
+                    border-radius: 44px;
+                    border-width: 2px;
+                    border-color: #d8e7f1;
+                    background: transparent;
+                }
+
+                Rectangle {
+                    x: 128px + 78px * sin(stage.orbit-angle);
+                    y: 50px + 30px * sin(stage.orbit-angle + 90deg);
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 12px;
+                    background: #e76f51;
+                }
+
+                Rectangle {
+                    x: 52px + 180px * (stage.orbit-angle / 360deg);
+                    y: 112px;
+                    width: 8px;
+                    height: 4px;
+                    border-radius: 2px;
+                    background: #4d7c9f;
+                }
+
+                Text {
+                    x: 0px;
+                    y: 95px;
+                    width: parent.width;
+                    text: "LIVE";
+                    color: #4d7c9f;
+                    font-size: 10px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+            }
+
+            Text {
+                x: 0px;
+                y: 244px;
+                width: parent.width;
+                text: "animation-tick() drives the orbit";
+                color: #25415f;
+                font-size: 12px;
+                horizontal-alignment: center;
+            }
+
+            Rectangle {
+                x: 112px;
+                y: 268px;
+                width: 136px;
+                height: 42px;
+                background: #25415f;
+                border-radius: 21px;
+
+                TouchArea {
+                    clicked => {
+                        root.animation-page = false;
+                        root.status-text = "Ready";
+                    }
+                }
+
+                Text {
+                    width: parent.width;
+                    height: parent.height;
+                    text: "BACK";
+                    color: #ffffff;
+                    font-size: 14px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}

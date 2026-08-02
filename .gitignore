@@ -1,0 +1,11 @@
+# will have compiled files and executables
+debug/
+target/
+
+# Rust formatter backups
+**/*.rs.bk
+
+# Editor metadata
+.vscode/
+.zed/
+.helix/

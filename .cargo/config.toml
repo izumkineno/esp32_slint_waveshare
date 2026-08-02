@@ -1,0 +1,14 @@
+[build]
+target = "xtensa-esp32s3-none-elf"
+
+[target.'cfg(target_arch = "xtensa")']
+runner    = "espflash flash --monitor --flash-size 16mb"
+rustflags = [
+  "-C", "link-arg=-nostartfiles",
+]
+
+[env]
+ESP_LOG = "info"
+
+[unstable]
+build-std = ["core", "alloc"]

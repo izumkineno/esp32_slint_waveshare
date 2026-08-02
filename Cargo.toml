@@ -1,0 +1,36 @@
+[package]
+edition      = "2021"
+name         = "esp_slint"
+rust-version = "1.86"
+version      = "0.1.0"
+build         = "build.rs"
+
+[[bin]]
+name = "esp_slint"
+path = "./src/bin/main.rs"
+
+[dependencies]
+esp-alloc            = "0.10.0"
+esp-bootloader-esp-idf = { version = "0.5.0", features = ["esp32s3"] }
+esp-hal              = { version = "1.1.1", features = ["esp32s3", "unstable"] }
+slint               = { version = "=1.16.0", default-features = false, features = [
+    "compat-1-2",
+    "unsafe-single-threaded",
+    "libm",
+    "renderer-software",
+] }
+
+[build-dependencies]
+slint-build = "=1.16.0"
+
+[profile.dev]
+opt-level = "s"
+
+[profile.release]
+codegen-units    = 1
+debug            = 2
+debug-assertions = false
+incremental      = false
+lto              = "fat"
+opt-level        = "s"
+overflow-checks  = false
