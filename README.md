@@ -22,9 +22,9 @@
 | `src/drivers/touch/mod.rs` | CST816S 触摸驱动和共享 I2C 事务 |
 | `src/drivers/rtc.rs` | PCF85063 RTC 初始化、BCD 解码和日期时间读取 |
 | `src/drivers/tca9554.rs` | TCA9554PWR I2C GPIO 扩展器和 LCD / 触摸复位线 |
-| `src/features/wifi_portal.rs` | WiFi SoftAP、DHCP、HTTP 配置门户 |
-| `src/features/bluetooth.rs` | BLE 广播和 GATT 服务 |
-| `src/features/config.rs` | WiFi / BLE 功能之间的运行时配置状态 |
+| `src/features/wifi_portal.rs` | WiFi SoftAP、DHCP、HTTP 配置门户和真实热点扫描 |
+| `src/features/bluetooth.rs` | BLE 广播、Central 扫描和 Security Manager 配对 |
+| `src/features/config.rs` | WiFi / BLE 命令、固定容量扫描快照和运行时配置状态 |
 | `src/ui_logic/clock.rs` | 时钟页面数据和 RTC 刷新逻辑 |
 | `src/ui_logic/input.rs` | 触摸轮询、Slint 事件转换和滑动识别 |
 | `src/ui/platform.rs` | Slint Platform 和软件渲染行缓冲适配 |
@@ -80,9 +80,11 @@ ST77916 QSPI line write
 由迭代器解码，不再为每条命令保存独立的 slice 指针和结构体元数据。
 
 嵌入式软件渲染器不能依赖电脑的系统字体。中文界面使用 `Noto Sans SC` 的
-UI 字符子集，并在 `ui/main.slint` 中设置为 `default-font-family`。`build.rs`
-显式监听字体文件变化，Slint 编译时会把字体字形表嵌入固件；因此开发板和
-桌面预览使用同一套中文字形，不再出现中文方框或空白。
+UI 字符子集，并额外包含常用 CJK Unified Ideographs（`U+4E00–U+9FFF`），
+覆盖扫描结果等运行时中文字符串；在 `ui/main.slint` 中设置为
+`default-font-family`。`build.rs` 显式监听字体文件变化，Slint 编译时会把字体
+字形表嵌入固件；因此开发板和桌面预览使用同一套中文字形，不再出现中文方框或
+空白。
 
 ## 硬件连接
 
@@ -119,24 +121,63 @@ UI 字符子集，并在 `ui/main.slint` 中设置为 `default-font-family`。`b
 
 ### 板载 WiFi / 蓝牙配置门户
 
-固件启动后会创建一个用于配网的 SoftAP：
+固件启动后可以提供一个用于配网的开放 SoftAP，但默认关闭。需要使用配置门户时，
+先在设备的 `WiFi 控制` 页面开启 AP：
 
 | 项目 | 值 |
 | --- | --- |
 | WiFi 名称 | `ESP32-S3-配置` |
-| WiFi 密码 | `esp32s3-config` |
+| WiFi 密码 | 无密码 |
 | 配置地址 | `http://192.168.4.1/` |
 
-使用手机或电脑连接配置网络，然后在浏览器打开配置地址。网页可以提交目标
-WiFi 名称、密码、蓝牙广播名称以及蓝牙开关。WiFi 提交后，设备在后台尝试
-连接目标网络；蓝牙名称在下一次广播周期使用。当前配置保存在运行内存中，
-重新上电后需要再次配置。
+开启 AP 后，使用手机或电脑连接配置网络，然后在浏览器打开配置地址。网页可以提交
+目标 WiFi 名称、密码、蓝牙广播名称以及蓝牙开关。WiFi 提交后，设备在后台尝试连接
+目标网络；蓝牙名称在下一次广播周期使用。AP 和蓝牙默认关闭，重新上电后需要再次
+开启。
+配置门户现在还提供两个扫描接口：
+
+- `GET /api/wifi/scan`：请求 WiFi 扫描；
+- `GET /api/wifi/results`：轮询 WiFi 扫描状态和结果；
+- `GET /api/ble/scan`：请求 BLE 扫描；
+- `GET /api/ble/results`：轮询 BLE 扫描状态和结果。
+
+网页中的 WiFi / 蓝牙结果区域支持上下滚动，点击 WiFi 结果会自动填入目标
+SSID。WiFi 扫描最多向无线驱动请求 8 个结果，屏幕和网页的固定容量快照仍保留
+12 个槽位。扫描时保持当前 Station 或 AP+Station 模式，不再通过 `set_config`
+重启 WiFi，避免 UI 与 BLE 共存时模式切换触发 `OutOfMemory`；Station 接口关闭时
+扫描会直接失败，需重新开启 WiFi 后再试。
 
 WiFi / Bluetooth LE 由 `esp-radio 0.18`、`esp-rtos 0.3` 和 Embassy 网络栈
 提供。无线栈必须在启动时先注册动态堆、启动 `esp_rtos` 调度器，再初始化
 Radio；本工程使用 64 KiB reclaimed heap、36 KiB 内部 heap 和 Octal PSRAM
 allocator。WiFi 与 BLE 同时启用时通过 `esp-radio` 的 `coex` feature 共存，
 无线任务不访问 Slint API，符合 `unsafe-single-threaded` 的单线程约束。
+主程序本身也是 Embassy 的异步任务，循环末尾必须使用
+`embassy_time::Timer::after_millis(...).await` 主动让出调度器；不能在异步主任务中
+使用阻塞式 `esp_hal::delay::Delay`。此前主循环一直占用 executor，导致
+`wifi_controller`、DHCP 和 BLE 任务没有运行，表现为手机关联 SoftAP 后无法获得
+IP、WiFi 扫描无结果。本工程现在已改为异步定时器。
+
+### 屏幕无线配置窗口
+
+右滑进入菜单后，`WiFi 配置` 和 `蓝牙配置` 都提供独立的触摸窗口：
+- WiFi：启动 `esp-radio` 硬件扫描，Station 接口开启时保持当前 AP/STA 模式不变；
+  每次扫描最多请求 8 个热点，10 秒超时。屏幕 WiFi 列表使用 `Flickable`，结果
+  超过可视区域时可以上下滑动，选择热点后进入大尺寸可滚动密码键盘。
+- 蓝牙：启动 TrouBLE Central 被动扫描，扫描窗口为 5 秒，最多保存 12 个广播
+  设备及地址 / RSSI。被动扫描可发现不响应主动扫描请求的设备；选择设备后进入
+  六位数字配对码窗口。
+- WiFi / BLE 扫描与配对结果通过 `src/features/config.rs` 的固定容量快照在无线
+  任务和 Slint 主循环之间传递，后台任务不直接访问 Slint 对象。
+- 功能菜单、WiFi / BLE 列表和密码键盘均支持触摸上下滑动；菜单按钮、导航按钮和
+  键盘按钮在按下期间会改变背景和边框颜色，提供明确的点击反馈。
+- AP 侧使用 `embassy-net::udp::UdpSocket` 和 `edge-dhcp` 协议层直接提供 DHCP，
+  地址池为 `192.168.4.50–192.168.4.200`，因此连接 SoftAP 的设备可以正常获得
+  `192.168.4.x` 地址并访问 `http://192.168.4.1/`。
+- 当前 WiFi 凭据和 BLE bond 不写入 Flash；设备重启后需要重新配置或重新配对。
+
+BLE Security Manager 使用 ESP32-S3 的 `RNG + ADC1` 熵源初始化随机种子，
+`src/board/mod.rs` 保留 `TrngSource` 的生命周期，直到主循环结束。
 
 ## 环境要求
 
@@ -213,7 +254,13 @@ Windows 命令行中建议使用 `/` 作为固件路径分隔符，避免某些 
 espflash flash --skip-update-check --port COM3 --chip esp32s3 --flash-size 16mb --monitor target/xtensa-esp32s3-none-elf/release/esp_slint
 ```
 
-本工程当前没有启用串口日志，监视器主要用于观察启动时的串口输出；如果需要重新编译、烧录或使用其他串口工具，先关闭占用 `COM3` 的监视器。
+固件启用 `esp-println` 日志。应用层日志通过 `esp_println::println!` 直接输出到
+`espflash monitor` 使用的 UART / USB JTAG 通道，日志行包含
+`[INFO][esp_slint::...]`、`[WARN][esp_slint::...]` 等级和模块前缀。
+`esp_println::logger::init_logger_from_env()` 仍保留用于 `esp-radio` 等依赖的
+`log` 日志；`ESP_LOG` 只过滤依赖日志，不会隐藏应用层的 ESP 直出日志。串口监视器
+可以观察启动、板级初始化、DHCP、WiFi 连接与扫描、BLE 配对与扫描、RTC 和 UI 状态；
+如果需要重新编译、烧录或使用其他串口工具，先关闭占用 `COM3` 的监视器。
 
 也可以使用 `.cargo/config.toml` 中的 runner：
 
@@ -225,17 +272,44 @@ cargo +esp run --release
 
 ## 界面功能
 
-当前 `ui/main.slint` 提供一个 360 × 360 圆形时钟主页和右滑进入的功能菜单：
+当前 UI 由 `ui/main.slint` 统一导出 `MainWindow`，并拆分为以下模块：
 
-- 主页：显示 PCF85063 提供的 `HH:MM:SS` 和 `YYYY-MM-DD`；
+- `ui/state.slint`：集中维护 `AppState` 全局状态；`MainWindow` 通过双向属性绑定保持
+Rust 端属性 API 稳定，Rust 回调统一注册到导出的 `AppState` 全局单例；
+- `ui/components/controls.slint`：共享的 `MenuItem`、`NavButton` 和 `KeyButton`；
+- `ui/pages/home.slint`：时钟主页；
+- `ui/pages/menu.slint`、`touch.slint`、`motion.slint`、`performance.slint`：基础功能页；
+- `ui/pages/wifi_*.slint`、`ble_*.slint`：WiFi 和蓝牙控制、扫描、输入页面；
+- `ui/pages/menu_shell.slint`：页面路由和左右滑动返回逻辑。
+- 所有可独立预览的页面继承 `PageFrame`：以 360 × 360 窗口为基准，使用 356 × 356
+  内圆、178px 圆角和 3px 边框，保留 ST77916 圆形 LCD 的实际显示比例；
+- 底部导航统一上移到 `y: 270px`；WiFi / BLE 控制页使用紧凑按钮行，
+  列表和键盘页面缩短可视区后保留 `Flickable` 滚动，避免控件被圆形边缘裁剪；
+- WiFi / BLE 扫描列表使用 `for item[index] in model: MenuItem` 重复器，Rust 将扫描结果
+  写入 `wifi-networks` / `ble-devices` 及对应 detail 数组，运行时只创建当前模型行数，
+  不再预渲染 12 个隐藏项；
+
+页面通过 `if root.menu-view == n: PageComponent {}` 条件实例化。Slint 会在运行时只
+创建当前页面，切换页面时释放旧页面；所有 `.slint` 定义仍会在构建时编译进固件。
+
+当前 UI 提供一个 360 × 360 圆形极简时钟主页和右滑进入的功能菜单：
+
+- 主页只显示 `HH:MM:SS` 时间和 `YYYY-MM-DD` 日期，不叠加设备型号、提示语或硬件信息；
+- 时间初始读取 PCF85063；Station 通过 DHCP 获取 IP 后，使用 `223.5.5.5` 解析 NTP
+  域名，再通过 UDP/123 校时，并将结果写回 PCF85063；
+- NTP 会依次尝试 `ntp.aliyun.com`、`ntp1.aliyun.com`、`pool.ntp.org`、
+  `time.cloudflare.com` 和 `time.google.com`；单个服务器超时不会阻塞其他服务器；
+- NTP 校时成功后每小时重新同步；Station 未连接、未获得 DHCP 地址或 DNS 不可达时，
+  保持 RTC 当前时间并在 30 秒后自动重试；
 - 从主页向右滑动：进入功能菜单；
 - `触摸计数`：打开触摸计数页面，点击卡片累计触摸次数；
 - `动态演示`：打开使用 `animation-tick()` 驱动轨道运动的动画页面；
 - `性能监视`：打开实时渲染 FPS 页面；
 - `清零计数`：清零触摸计数；
-- `WiFi 配置`：显示板载配置网络、密码和网页地址；
-- `蓝牙配置`：显示蓝牙配置网页和广播生效说明；
-- 在菜单或功能页向左滑动：返回时钟主页；页面按钮可返回功能菜单。
+- `WiFi 控制`：显示 AP 和目标网络连接状态，提供 AP 开关、WiFi 开关和断开连接按钮；
+- `蓝牙控制`：显示广播状态，提供蓝牙开关和扫描入口；
+- 功能菜单、扫描列表和键盘使用 `Flickable` 处理溢出内容；所有按钮在按下时有
+  颜色反馈；在菜单或功能页向左滑动仍可返回时钟主页。
 
 触摸事件由 CST816S 轮询获取，再转换为 Slint 的：
 
@@ -245,6 +319,63 @@ cargo +esp run --release
 - `PointerExited`
 
 主循环同时记录触摸起点和释放位置：水平位移至少 60 像素且垂直偏移不超过 100 像素时，识别为右滑或左滑，并切换 `menu-open` 状态。
+
+## 单页面预览
+
+每个 `ui/pages/*.slint` 都导出了可直接预览的组件。页面不再依赖
+`menu-view` 路由条件，Viewer 可以直接指定组件：
+
+```powershell
+cd E:\Code\ESP32
+cargo run --release --manifest-path slint/tools/viewer/Cargo.toml -- `
+  --component WifiListPage `
+  --screenshot C:/Temp/wifi-list.png `
+  esp_slint/ui/pages/wifi_list.slint
+```
+
+可替换的组件和文件包括：
+
+```text
+HomePage          pages/home.slint
+MenuPage          pages/menu.slint
+TouchPage         pages/touch.slint
+MotionPage        pages/motion.slint
+PerformancePage   pages/performance.slint
+WifiControlPage   pages/wifi_control.slint
+WifiListPage      pages/wifi_list.slint
+WifiPasswordPage  pages/wifi_password.slint
+BleControlPage    pages/ble_control.slint
+BleScanPage       pages/ble_scan.slint
+BlePairPage       pages/ble_pair.slint
+```
+
+需要预览扫描结果时，通过导出的 `AppState` 全局单例注入数据：
+
+```json
+{
+  "AppState": {
+    "wifi-scan-state": 3,
+    "wifi-scan-status": "扫描完成：2 个网络",
+    "wifi-network-count": 2,
+    "wifi-networks": ["家庭 WiFi", "办公室网络"],
+    "wifi-network-details": ["-42 dBm · 加密", "-67 dBm · 开放"],
+    "ble-scan-state": 3,
+    "ble-scan-status": "扫描完成：2 个设备",
+    "ble-device-count": 2,
+    "ble-devices": ["无线键盘", "传感器"],
+    "ble-device-details": [
+      "AA:BB:CC:DD:EE:01 · -51 dBm",
+      "AA:BB:CC:DD:EE:02 · -72 dBm"
+    ]
+  }
+}
+```
+
+然后追加：
+
+```powershell
+--load-data C:/Temp/wifi-preview.json
+```
 
 ## 依赖说明
 
@@ -267,9 +398,13 @@ Slint 的关键 feature：
 `unsafe-single-threaded` 要求所有 Slint API 都在当前单线程主循环中调用；本工程的
 WiFi、DHCP 和 BLE 任务只访问无线状态，不访问 Slint 对象。
 
-无线依赖固定为 `esp-radio = 0.18.0`、`esp-rtos = 0.3.0`、`embassy-net = 0.8.0`
-和 `trouble-host = 0.6.0`，这些版本与当前 Rust 1.88 / `esp-hal = 1.1.1`
-兼容。不要直接切换到要求 Rust 1.95 的 `esp-radio 1.0.0-beta.0` API。
+无线依赖固定为 `esp-radio 0.18.0`、`esp-rtos 0.3.0`、`embassy-net 0.8.0`
+和 `trouble-host 0.6.0`；日志使用 `esp-println 0.17.0`。DHCP 使用
+`edge-dhcp 0.7.0` 的无默认特性协议层，不再引入 `edge-nal` /
+`edge-nal-embassy` UDP 适配。TrouBLE 额外启用 `scan`、`security` 和 `log`
+features，并直接依赖 `bt-hci 0.8` 以访问扫描命令约束。这些版本与当前 Rust
+1.88 / `esp-hal = 1.1.1` 兼容。不要直接切换到要求 Rust 1.95 的
+`esp-radio 1.0.0-beta.0` API。
 
 ## 已验证命令
 
@@ -277,10 +412,40 @@ WiFi、DHCP 和 BLE 任务只访问无线状态，不访问 Slint 对象。
 
 ```powershell
 cargo +esp fmt --check
+cargo +esp check
 cargo +esp build --release
 cargo +esp metadata --no-deps --format-version 1
+espflash save-image --skip-update-check --merge --chip esp32s3 --flash-size 16mb --skip-padding target/xtensa-esp32s3-none-elf/release/esp_slint <output.bin>
 ```
 
-本次已修复中文字体缺失，完成中文时钟主页、六项功能菜单、板载 HTTP 配置
-门户以及 WiFi / BLE 无线初始化。已通过格式检查、ESP32-S3 release 固件构建、
-Slint 语法检查和软件渲染器截图验证；尚未重新烧录到 COM3。
+本轮修复覆盖：
+
+- WiFi AP 和 STA 开关、目标网络连接状态、手动断开和自动重连控制；
+- 蓝牙广播开关；关闭时拒绝新的 BLE 扫描和配对请求；
+- WiFi 扫描保持当前 Station 或 AP+Station 模式，不通过 `set_config` 重启无线驱动，
+  避免 UI 与 BLE 共存时模式切换触发 `OutOfMemory`；
+- 屏幕功能菜单、WiFi / BLE 结果列表和密码键盘的 `Flickable` 溢出滚动；
+- 60px × 38px 大尺寸并排密码键，支持字母、数字、符号、大小写、空格和删除；
+- `MenuItem`、`NavButton` 和 `KeyButton` 的按下颜色反馈。
+
+以下命令已通过：
+
+```powershell
+cargo +esp fmt --check
+cargo +esp check
+cargo +esp build --release
+```
+
+发布镜像尺寸会随 UI 字体和页面内容变化，必须以 `espflash save-image` 输出为准。
+软件渲染器预览已检查 WiFi 控制、WiFi 列表和蓝牙控制页面；当前字体文件包含
+21,180 个字形，新增开关、连接状态、扫描列表和滑动提示中文字符均已编译。
+
+WiFi 列表入口会在当前 Station 或 AP+Station 模式下直接扫描，不会暂时关闭 SoftAP。
+AP 默认关闭；需要使用网页配置时，先在设备 `WiFi 控制` 页面开启 AP。列表使用
+Slint `Flickable` 显示动态数量的结果，超出可视区域时上下滑动浏览。
+
+本轮已通过本地 `cargo +esp fmt --check`、`cargo +esp check` 和
+`cargo +esp build --release`。设备端运行时验证仍需可用的 COM3 串口。
+
+开启 AP 后，手机或电脑连接开放网络 `ESP32-S3-配置`，访问
+`http://192.168.4.1/`，点击“扫描 WiFi”即可轮询扫描结果。

@@ -1,0 +1,75 @@
+import { AppState, StateRoot } from "../state.slint";
+import { BleControlPage } from "./ble_control.slint";
+import { BlePairPage } from "./ble_pair.slint";
+import { BleScanPage } from "./ble_scan.slint";
+import { MenuPage } from "./menu.slint";
+import { MotionPage } from "./motion.slint";
+import { PerformancePage } from "./performance.slint";
+import { TouchPage } from "./touch.slint";
+import { WifiControlPage } from "./wifi_control.slint";
+import { WifiListPage } from "./wifi_list.slint";
+import { WifiPasswordPage } from "./wifi_password.slint";
+
+export { AppState }
+export component MenuShell inherits StateRoot {
+    TouchArea {
+        width: parent.width;
+        height: parent.height;
+        property <length> gesture-start-x;
+        property <length> gesture-start-y;
+
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                self.gesture-start-x = self.mouse-x;
+                self.gesture-start-y = self.mouse-y;
+            } else if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
+                if (self.mouse-x - self.gesture-start-x <= -60px
+                        && abs(self.mouse-y - self.gesture-start-y) <= 100px) {
+                    root.menu-view = 0;
+                    root.menu-open = false;
+                }
+            }
+        }
+    }
+
+    if root.menu-view == 0: MenuPage {
+        width: parent.width;
+        height: parent.height;
+    }
+    if root.menu-view == 1: TouchPage {
+        width: parent.width;
+        height: parent.height;
+    }
+    if root.menu-view == 2: MotionPage {
+        width: parent.width;
+        height: parent.height;
+    }
+    if root.menu-view == 3: PerformancePage {
+        width: parent.width;
+        height: parent.height;
+    }
+    if root.menu-view == 4: WifiControlPage {
+        width: parent.width;
+        height: parent.height;
+    }
+    if root.menu-view == 5: BleControlPage {
+        width: parent.width;
+        height: parent.height;
+    }
+    if root.menu-view == 6: WifiListPage {
+        width: parent.width;
+        height: parent.height;
+    }
+    if root.menu-view == 7: WifiPasswordPage {
+        width: parent.width;
+        height: parent.height;
+    }
+    if root.menu-view == 8: BleScanPage {
+        width: parent.width;
+        height: parent.height;
+    }
+    if root.menu-view == 9: BlePairPage {
+        width: parent.width;
+        height: parent.height;
+    }
+}

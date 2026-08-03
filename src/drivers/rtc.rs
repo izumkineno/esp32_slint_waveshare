@@ -34,15 +34,62 @@ impl DateTime {
             && self.minute < 60
             && self.second < 60
     }
+
+    pub fn from_unix_seconds(timestamp: u64) -> Option<Self> {
+        const SECONDS_PER_DAY: u64 = 86_400;
+
+        let mut days = timestamp / SECONDS_PER_DAY;
+        let seconds_today = timestamp % SECONDS_PER_DAY;
+        let mut year = 1970u16;
+
+        while days >= u64::from(days_in_year(year)) {
+            days -= u64::from(days_in_year(year));
+            year = year.checked_add(1)?;
+            if year > 2069 {
+                return None;
+            }
+        }
+
+        let mut month = 1u8;
+        while days >= u64::from(days_in_month(year, month)) {
+            days -= u64::from(days_in_month(year, month));
+            month += 1;
+        }
+
+        Some(Self {
+            year,
+            month,
+            day: days as u8 + 1,
+            weekday: ((timestamp / SECONDS_PER_DAY + 4) % 7) as u8,
+            hour: (seconds_today / 3_600) as u8,
+            minute: ((seconds_today % 3_600) / 60) as u8,
+            second: (seconds_today % 60) as u8,
+        })
+    }
 }
 
 pub fn init(touch: &mut Cst816Touch<'_>) -> Result<(), Error> {
-    touch.write_register(PCF85063_ADDRESS, &[CONTROL_1_REG, CONTROL_1_CAP_SEL])
+    match touch.write_register(PCF85063_ADDRESS, &[CONTROL_1_REG, CONTROL_1_CAP_SEL]) {
+        Ok(()) => {
+            crate::esp_info!(
+                "RTC: PCF85063 initialized at address 0x{:02X}",
+                PCF85063_ADDRESS
+            );
+            Ok(())
+        }
+        Err(error) => {
+            crate::esp_warn!("RTC: initialization failed: {:?}", error);
+            Err(error)
+        }
+    }
 }
 
 pub fn read_time(touch: &mut Cst816Touch<'_>) -> Result<DateTime, Error> {
     let mut data = [0u8; 7];
-    touch.write_read_register(PCF85063_ADDRESS, &[TIME_START_REG], &mut data)?;
+    if let Err(error) = touch.write_read_register(PCF85063_ADDRESS, &[TIME_START_REG], &mut data) {
+        crate::esp_warn!("RTC: time read failed: {:?}", error);
+        return Err(error);
+    }
 
     Ok(DateTime {
         second: bcd_to_dec(data[0] & 0x7f),
@@ -55,6 +102,65 @@ pub fn read_time(touch: &mut Cst816Touch<'_>) -> Result<DateTime, Error> {
     })
 }
 
+pub fn write_time(touch: &mut Cst816Touch<'_>, datetime: DateTime) -> Result<(), Error> {
+    let year = datetime.year.saturating_sub(1970) as u8;
+    let data = [
+        TIME_START_REG,
+        dec_to_bcd(datetime.second),
+        dec_to_bcd(datetime.minute),
+        dec_to_bcd(datetime.hour),
+        dec_to_bcd(datetime.day),
+        dec_to_bcd(datetime.weekday),
+        dec_to_bcd(datetime.month),
+        dec_to_bcd(year),
+    ];
+    crate::esp_info!(
+        "RTC: writing time {:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+        datetime.year,
+        datetime.month,
+        datetime.day,
+        datetime.hour,
+        datetime.minute,
+        datetime.second
+    );
+    match touch.write_register(PCF85063_ADDRESS, &data) {
+        Ok(()) => {
+            crate::esp_info!("RTC: time write completed");
+            Ok(())
+        }
+        Err(error) => {
+            crate::esp_warn!("RTC: time write failed: {:?}", error);
+            Err(error)
+        }
+    }
+}
+
 fn bcd_to_dec(value: u8) -> u8 {
     (value >> 4) * 10 + (value & 0x0f)
+}
+
+fn dec_to_bcd(value: u8) -> u8 {
+    ((value / 10) << 4) | (value % 10)
+}
+
+fn is_leap_year(year: u16) -> bool {
+    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+}
+
+fn days_in_year(year: u16) -> u16 {
+    if is_leap_year(year) {
+        366
+    } else {
+        365
+    }
+}
+
+fn days_in_month(year: u16, month: u8) -> u8 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if is_leap_year(year) => 29,
+        2 => 28,
+        _ => 30,
+    }
 }

@@ -1,0 +1,76 @@
+import { AppState, PageFrame } from "../state.slint";
+import { MenuItem, NavButton } from "../components/controls.slint";
+export { AppState }
+
+export component BleScanPage inherits PageFrame {
+    // Page body is inserted below.
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: transparent;
+
+                Text {
+                    x: 0px;
+                    y: 14px;
+                    width: parent.width;
+                    text: "扫描蓝牙设备";
+                    color: #25415f;
+                    font-size: 21px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    x: 24px;
+                    y: 43px;
+                    width: parent.width - 48px;
+                    text: root.ble-scan-status;
+                    color: #71839a;
+                    font-size: 10px;
+                    horizontal-alignment: center;
+                }
+
+                if root.ble-device-count == 0: Text {
+                    x: 0px;
+                    y: 150px;
+                    width: parent.width;
+                    text: root.ble-scan-state == 2 ? "正在扫描附近设备…" : "暂无扫描结果";
+                    color: #71839a;
+                    font-size: 12px;
+                    horizontal-alignment: center;
+                }
+
+                Flickable {
+                    x: 24px;
+                    y: 61px;
+                    width: 312px;
+                    height: 202px;
+                    viewport-width: 312px;
+                    viewport-height: 488px;
+
+                    for device[index] in root.ble-devices: MenuItem {
+                        x: 0px;
+                        y: index * 40px;
+                        width: 312px;
+                        label: device;
+                        detail: root.ble-device-details[index];
+                        activated => {
+                            root.ble-selected-index = index;
+                            root.ble-selected-name = device;
+                            root.ble-code = "";
+                            root.menu-view = 9;
+                        }
+                    }
+                }
+
+                NavButton {
+                    x: 122px;
+                    y: 270px;
+                    button-width: 112px;
+                    label: "返回蓝牙";
+                    activated => {
+                        root.menu-view = 5;
+                    }
+                }
+            }
+}

@@ -46,5 +46,7 @@ impl<'a, 'd> LineBufferProvider for DisplayLineBuffer<'a, 'd> {
 }
 
 pub fn install_platform(window: Rc<MinimalSoftwareWindow>) {
+    crate::esp_info!("UI: installing ESP Slint platform");
     slint::platform::set_platform(Box::new(EspPlatform { window })).unwrap();
+    crate::esp_info!("UI: ESP Slint platform installed");
 }

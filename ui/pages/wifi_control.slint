@@ -1,0 +1,120 @@
+import { AppState, PageFrame } from "../state.slint";
+import { NavButton } from "../components/controls.slint";
+export { AppState }
+
+export component WifiControlPage inherits PageFrame {
+    // Page body is inserted below.
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: transparent;
+
+                Text {
+                    x: 0px;
+                    y: 30px;
+                    width: parent.width;
+                    text: "WiFi 控制";
+                    color: #25415f;
+                    font-size: 21px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+
+                Rectangle {
+                    x: 30px;
+                    y: 82px;
+                    width: 296px;
+                    height: 154px;
+                    background: #ffffff;
+                    border-radius: 22px;
+                    border-width: 1px;
+                    border-color: #d8e1eb;
+
+                    Text {
+                        x: 18px;
+                        y: 14px;
+                        width: parent.width - 36px;
+                        text: root.wifi-ap-enabled ? "AP：已开启" : "AP：已关闭";
+                        color: #14253a;
+                        font-size: 12px;
+                    }
+
+                    Text {
+                        x: 18px;
+                        y: 40px;
+                        width: parent.width - 36px;
+                        text: "连接：" + root.wifi-connection-status;
+                        color: #14253a;
+                        font-size: 12px;
+                    }
+
+                    Text {
+                        x: 18px;
+                        y: 66px;
+                        width: parent.width - 36px;
+                        text: "网络：" + root.wifi-connection-ssid;
+                        color: #14253a;
+                        font-size: 11px;
+                    }
+
+                    Text {
+                        x: 18px;
+                        y: 94px;
+                        width: parent.width - 36px;
+                        text: "网页：http://192.168.4.1/";
+                        color: #25415f;
+                        font-size: 10px;
+                    }
+
+                    Text {
+                        x: 18px;
+                        y: 120px;
+                        width: parent.width - 36px;
+                        text: "扫描保持 AP/STA 模式，不会中断配置网页";
+                        color: #71839a;
+                        font-size: 9px;
+                    }
+                }
+
+                NavButton {
+                    x: 56px;
+                    y: 242px;
+                    button-width: 112px;
+                    label: root.wifi-ap-enabled ? "关闭 AP" : "开启 AP";
+                    activated => {
+                        AppState.wifi-ap-toggle-requested(!root.wifi-ap-enabled);
+                    }
+                }
+
+                NavButton {
+                    x: 188px;
+                    y: 242px;
+                    button-width: 112px;
+                    label: root.wifi-station-enabled ? "关闭 WiFi" : "开启 WiFi";
+                    activated => {
+                        AppState.wifi-station-toggle-requested(!root.wifi-station-enabled);
+                    }
+                }
+
+                NavButton {
+                    x: 76px;
+                    y: 286px;
+                    button-width: 96px;
+                    label: "WiFi 列表";
+                    activated => {
+                        AppState.wifi-scan-requested();
+                        root.menu-view = 6;
+                    }
+                }
+
+                NavButton {
+                    x: 184px;
+                    y: 286px;
+                    button-width: 96px;
+                    label: "断开连接";
+                    activated => {
+                        AppState.wifi-disconnect-requested();
+                    }
+                }
+            }
+}

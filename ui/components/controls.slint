@@ -1,0 +1,103 @@
+export component MenuItem inherits Rectangle {
+    in property <string> label;
+    in property <string> detail;
+    callback activated();
+
+    width: 276px;
+    height: 34px;
+    border-radius: 14px;
+    border-width: 1px;
+    border-color: touch.pressed ? #4d7c9f : #d8e1eb;
+    background: touch.pressed ? #dbe8f5 : #ffffff;
+
+    touch := TouchArea {
+        clicked => {
+            root.activated();
+        }
+    }
+
+    Text {
+        x: 16px;
+        y: 4px;
+        width: parent.width - 32px;
+        text: root.label;
+        color: #14253a;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    Text {
+        x: 16px;
+        y: 20px;
+        width: parent.width - 32px;
+        text: root.detail;
+        color: #71839a;
+        font-size: 8px;
+    }
+}
+
+export component NavButton inherits Rectangle {
+    in property <length> button-width: 136px;
+    in property <string> label;
+    callback activated();
+
+    width: root.button-width;
+    height: 38px;
+    border-radius: 19px;
+    background: touch.pressed ? #4d7c9f : #25415f;
+
+    touch := TouchArea {
+        clicked => {
+            root.activated();
+        }
+    }
+
+    Text {
+        x: touch.pressed ? 1px : 0px;
+        y: touch.pressed ? 1px : 0px;
+        width: parent.width;
+        height: parent.height;
+        text: root.label;
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+export component KeyButton inherits Rectangle {
+    in property <string> value;
+    in property <length> button-width: 60px;
+    callback pressed(string);
+
+    width: root.button-width;
+    height: 38px;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: touch.pressed ? #4d7c9f : #d8e1eb;
+    background: touch.pressed ? #dbe8f5 : #ffffff;
+
+    touch := TouchArea {
+        clicked => {
+            root.pressed(root.value);
+        }
+    }
+
+    Text {
+        x: touch.pressed ? 1px : 0px;
+        y: touch.pressed ? 1px : 0px;
+        width: parent.width;
+        height: parent.height;
+        text: root.value == "SHIFT"
+            ? "大写"
+            : (root.value == "SYM"
+                ? "符号"
+                : (root.value == "SPACE" ? "空格" : (root.value == "BACK" ? "删除" : root.value)));
+        color: touch.pressed ? #14253a : #25415f;
+        font-size: root.value == "SHIFT" || root.value == "SYM" || root.value == "SPACE" || root.value == "BACK" ? 10px : 14px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}

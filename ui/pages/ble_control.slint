@@ -1,0 +1,101 @@
+import { AppState, PageFrame } from "../state.slint";
+import { NavButton } from "../components/controls.slint";
+export { AppState }
+
+export component BleControlPage inherits PageFrame {
+    // Page body is inserted below.
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: transparent;
+
+                Text {
+                    x: 0px;
+                    y: 30px;
+                    width: parent.width;
+                    text: "蓝牙控制";
+                    color: #25415f;
+                    font-size: 21px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+
+                Rectangle {
+                    x: 30px;
+                    y: 82px;
+                    width: 296px;
+                    height: 154px;
+                    background: #ffffff;
+                    border-radius: 22px;
+                    border-width: 1px;
+                    border-color: #d8e1eb;
+
+                    Text {
+                        x: 18px;
+                        y: 18px;
+                        width: parent.width - 36px;
+                        text: root.ble-enabled ? "广播：已开启" : "广播：已关闭";
+                        color: #14253a;
+                        font-size: 12px;
+                    }
+
+                    Text {
+                        x: 18px;
+                        y: 52px;
+                        width: parent.width - 36px;
+                        text: "网页地址：192.168.4.1";
+                        color: #25415f;
+                        font-size: 11px;
+                    }
+
+                    Text {
+                        x: 18px;
+                        y: 84px;
+                        width: parent.width - 36px;
+                        text: "关闭后停止新的广播和扫描";
+                        color: #71839a;
+                        font-size: 10px;
+                    }
+
+                    Text {
+                        x: 18px;
+                        y: 112px;
+                        width: parent.width - 36px;
+                        text: "扫描附近 BLE 设备并输入配对码";
+                        color: #71839a;
+                        font-size: 10px;
+                    }
+                }
+
+                NavButton {
+                    x: 56px;
+                    y: 242px;
+                    button-width: 112px;
+                    label: root.ble-enabled ? "关闭蓝牙" : "开启蓝牙";
+                    activated => {
+                        AppState.ble-toggle-requested(!root.ble-enabled);
+                    }
+                }
+
+                NavButton {
+                    x: 188px;
+                    y: 242px;
+                    button-width: 112px;
+                    label: "扫描设备";
+                    activated => {
+                        AppState.ble-scan-requested();
+                        root.menu-view = 8;
+                    }
+                }
+
+                NavButton {
+                    x: 122px;
+                    y: 286px;
+                    button-width: 112px;
+                    label: "返回菜单";
+                    activated => {
+                        root.menu-view = 0;
+                    }
+                }
+            }
+}

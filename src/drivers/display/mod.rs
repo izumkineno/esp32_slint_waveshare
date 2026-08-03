@@ -50,6 +50,7 @@ pub struct DisplayPeripherals<'d> {
 
 pub fn init(parts: DisplayPeripherals<'static>) -> (St77916Display<'static>, Cst816Touch<'static>) {
     let delay = Delay::new();
+    crate::esp_info!("DISPLAY: initializing I2C, touch, and ST77916 panel");
 
     let mut i2c = I2c::new(
         parts.i2c0,
@@ -60,6 +61,7 @@ pub fn init(parts: DisplayPeripherals<'static>) -> (St77916Display<'static>, Cst
     .with_scl(parts.gpio10);
 
     tca9554::configure(&mut i2c);
+    crate::esp_debug!("DISPLAY: TCA9554 reset controller configured");
 
     // The LCD reset is controlled by TCA9554PWR EXIO2.
     delay.delay_millis(10);
@@ -88,6 +90,7 @@ pub fn init(parts: DisplayPeripherals<'static>) -> (St77916Display<'static>, Cst
     };
 
     display.initialize_panel(&delay).unwrap();
+    crate::esp_info!("DISPLAY: ST77916 panel initialized");
 
     // Keep LCD reset released while pulsing the touch reset on EXIO1.
     tca9554::write_output(&mut i2c, tca9554::LCD_RESET_BIT);
@@ -96,6 +99,7 @@ pub fn init(parts: DisplayPeripherals<'static>) -> (St77916Display<'static>, Cst
     delay.delay_millis(50);
 
     let touch = Cst816Touch::new(i2c, parts.gpio4).unwrap();
+    crate::esp_info!("DISPLAY: CST816S touch controller initialized");
     (display, touch)
 }
 
@@ -166,6 +170,7 @@ impl St77916Display<'_> {
         }
 
         self.send_command(0x29, &[])?;
+        crate::esp_info!("DISPLAY: panel command stream completed");
         Ok(())
     }
 
@@ -227,6 +232,7 @@ impl St77916Display<'_> {
             &[],
         );
         if let Err(error) = command_result {
+            crate::esp_warn!("DISPLAY: color command failed: {:?}", error);
             self.cs.set_high();
             return Err(error);
         }
@@ -246,6 +252,7 @@ impl St77916Display<'_> {
                 0,
                 &bytes[..chunk.len() * 2],
             ) {
+                crate::esp_warn!("DISPLAY: pixel write failed: {:?}", error);
                 self.cs.set_high();
                 return Err(error);
             }

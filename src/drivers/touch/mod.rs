@@ -36,7 +36,9 @@ impl<'d> Cst816Touch<'d> {
         // its automatic sleep mode before the application starts polling it.
         let mut chip_id = [0u8; 1];
         i2c.write_read(CST816S_ADDRESS, &[CHIP_ID_REG], &mut chip_id)?;
+        crate::esp_debug!("TOUCH: CST816S chip id=0x{:02X}", chip_id[0]);
         i2c.write(CST816S_ADDRESS, &[AUTO_SLEEP_REG, 1])?;
+        crate::esp_info!("TOUCH: automatic sleep disabled");
 
         let interrupt = Input::new(interrupt_pin, InputConfig::default().with_pull(Pull::Up));
 

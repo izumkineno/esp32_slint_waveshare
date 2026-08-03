@@ -8,20 +8,21 @@ build         = "build.rs"
 [[bin]]
 name = "esp_slint"
 path = "./src/bin/main.rs"
+test = false
 
 [dependencies]
 critical-section = "1.2.0"
-edge-dhcp = "0.7.0"
-edge-nal = "0.6.0"
-edge-nal-embassy = "0.8.1"
+edge-dhcp = { version = "0.7.0", default-features = false }
 embassy-executor = "0.10.0"
 embassy-futures = "0.1"
 embassy-net = { version = "0.8.0", features = [
     "dhcpv4",
     "medium-ethernet",
     "tcp",
+    "dns",
     "udp",
 ] }
+bt-hci = "0.8"
 embassy-sync = "0.7"
 embassy-time = "0.5.0"
 embedded-io-async = "0.7"
@@ -39,16 +40,18 @@ esp-rtos = { version = "0.3.0", features = [
     "embassy",
     "log-04",
 ] }
-log = "0.4.27"
 static_cell = "2.1.1"
 trouble-host = { version = "0.6.0", features = [
     "default-packet-pool-mtu-255",
     "derive",
     "scan",
-] }
+    "security",
+    "log",
+ ] }
 esp-alloc            = "0.10.0"
 esp-bootloader-esp-idf = { version = "0.5.0", features = ["esp32s3"] }
 esp-hal              = { version = "1.1.1", features = ["esp32s3", "unstable"] }
+esp-println          = { version = "0.17.0", features = ["esp32s3", "log-04"] }
 slint               = { version = "=1.16.0", default-features = false, features = [
     "compat-1-2",
     "unsafe-single-threaded",

@@ -49,6 +49,9 @@ pub fn poll_touch(
                     }
                 });
 
+                if swipe.is_some() {
+                    crate::esp_debug!("TOUCH: horizontal swipe detected");
+                }
                 window.dispatch_event(WindowEvent::PointerReleased {
                     position,
                     button: PointerEventButton::Left,

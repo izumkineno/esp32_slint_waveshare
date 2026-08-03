@@ -39,12 +39,15 @@ pub fn update_clock(ui: &MainWindow, datetime: DateTime) {
 }
 
 pub fn set_rtc_unavailable(ui: &MainWindow) {
+    crate::esp_warn!("RTC: clock UI marked unavailable");
     ui.set_clock_text(slint::SharedString::from("--:--:--"));
     ui.set_date_text(slint::SharedString::from("RTC 未设置"));
 }
 
 pub fn initialize_rtc(touch: &mut Cst816Touch<'_>) -> bool {
-    crate::drivers::rtc::init(touch).is_ok()
+    let initialized = crate::drivers::rtc::init(touch).is_ok();
+    crate::esp_info!("RTC: clock source initialized={}", initialized);
+    initialized
 }
 
 pub fn refresh_rtc(ui: &MainWindow, touch: &mut Cst816Touch<'_>) {
@@ -52,4 +55,23 @@ pub fn refresh_rtc(ui: &MainWindow, touch: &mut Cst816Touch<'_>) {
         Ok(datetime) if datetime.is_valid() => update_clock(ui, datetime),
         _ => set_rtc_unavailable(ui),
     }
+}
+
+pub fn apply_network_time(ui: &MainWindow, touch: &mut Cst816Touch<'_>, timestamp: u64) -> bool {
+    let Some(datetime) = DateTime::from_unix_seconds(timestamp) else {
+        crate::esp_warn!(
+            "RTC: network timestamp {} is outside supported range",
+            timestamp
+        );
+        return false;
+    };
+
+    if crate::drivers::rtc::write_time(touch, datetime).is_err() {
+        crate::esp_warn!("RTC: failed to apply network timestamp {}", timestamp);
+        return false;
+    }
+
+    update_clock(ui, datetime);
+    crate::esp_info!("RTC: network timestamp {} applied", timestamp);
+    true
 }

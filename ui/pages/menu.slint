@@ -1,0 +1,112 @@
+import { AppState, PageFrame } from "../state.slint";
+import { MenuItem } from "../components/controls.slint";
+export { AppState }
+
+export component MenuPage inherits PageFrame {
+    // Page body is inserted below.
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: transparent;
+
+                Text {
+                    x: 0px;
+                    y: 28px;
+                    width: parent.width;
+                    text: "功能菜单";
+                    color: #25415f;
+                    font-size: 24px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    x: 0px;
+                    y: 59px;
+                    width: parent.width;
+                    text: "上下滑动选择功能";
+                    color: #71839a;
+                    font-size: 12px;
+                    horizontal-alignment: center;
+                }
+
+                Flickable {
+                    x: 26px;
+                    y: 68px;
+                    width: 308px;
+                    height: 214px;
+                    viewport-width: 308px;
+                    viewport-height: 320px;
+
+                    MenuItem {
+                        x: 16px;
+                        y: 4px;
+                        label: "触摸计数";
+                        detail: "点击卡片累计触摸次数";
+                        activated => {
+                            root.menu-view = 1;
+                        }
+                    }
+
+                    MenuItem {
+                        x: 16px;
+                        y: 48px;
+                        label: "动态演示";
+                        detail: "运行 animation-tick 轨道动画";
+                        activated => {
+                            root.menu-view = 2;
+                        }
+                    }
+
+                    MenuItem {
+                        x: 16px;
+                        y: 92px;
+                        label: "性能监视";
+                        detail: "查看实时渲染 FPS";
+                        activated => {
+                            root.menu-view = 3;
+                        }
+                    }
+
+                    MenuItem {
+                        x: 16px;
+                        y: 136px;
+                        label: "清零计数";
+                        detail: "重置触摸计数";
+                        activated => {
+                            AppState.clear-requested();
+                        }
+                    }
+
+                    MenuItem {
+                        x: 16px;
+                        y: 180px;
+                        label: "WiFi 配置";
+                        detail: "连接配置网络并打开网页";
+                        activated => {
+                            root.menu-view = 4;
+                        }
+                    }
+
+                    MenuItem {
+                        x: 16px;
+                        y: 224px;
+                        label: "蓝牙配置";
+                        detail: "设置广播名称和开关";
+                        activated => {
+                            root.menu-view = 5;
+                        }
+                    }
+
+                    Text {
+                        x: 16px;
+                        y: 274px;
+                        width: 276px;
+                        text: "向左滑动返回主页";
+                        color: #71839a;
+                        font-size: 10px;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+}

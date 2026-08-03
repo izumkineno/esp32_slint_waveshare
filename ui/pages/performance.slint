@@ -1,0 +1,73 @@
+import { AppState, PageFrame } from "../state.slint";
+import { NavButton } from "../components/controls.slint";
+export { AppState }
+
+export component PerformancePage inherits PageFrame {
+    // Page body is inserted below.
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: transparent;
+
+                Text {
+                    x: 0px;
+                    y: 30px;
+                    width: parent.width;
+                    text: "性能监视";
+                    color: #25415f;
+                    font-size: 21px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+
+                meter := Rectangle {
+                    x: 40px;
+                    y: 96px;
+                    width: 276px;
+                    height: 126px;
+                    background: #ffffff;
+                    border-radius: 24px;
+                    border-width: 1px;
+                    border-color: #d8e1eb;
+                    private property <float> pulse: abs(sin(360deg * animation-tick() / 1000ms));
+
+                    Rectangle {
+                        x: 118px - 12px * meter.pulse;
+                        y: 14px - 12px * meter.pulse;
+                        width: 40px + 24px * meter.pulse;
+                        height: self.width;
+                        border-radius: self.width / 2;
+                        background: #e76f51;
+                    }
+
+                    Text {
+                        y: 48px;
+                        width: parent.width;
+                        text: root.fps;
+                        color: #14253a;
+                        font-size: 40px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        y: 98px;
+                        width: parent.width;
+                        text: "渲染 FPS";
+                        color: #71839a;
+                        font-size: 10px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                    }
+                }
+
+                NavButton {
+                    x: 112px;
+                    y: 270px;
+                    label: "返回功能菜单";
+                    activated => {
+                        root.menu-view = 0;
+                    }
+                }
+            }
+}

@@ -12,8 +12,10 @@ const CONFIG_REG: u8 = 0x03;
 pub fn configure(i2c: &mut I2c<'_, Blocking>) {
     i2c.write(ADDRESS, &[CONFIG_REG, 0x00]).unwrap();
     i2c.write(ADDRESS, &[OUTPUT_REG, 0x00]).unwrap();
+    crate::esp_info!("GPIO: TCA9554 configured at address 0x{:02X}", ADDRESS);
 }
 
 pub fn write_output(i2c: &mut I2c<'_, Blocking>, value: u8) {
     i2c.write(ADDRESS, &[OUTPUT_REG, value]).unwrap();
+    crate::esp_debug!("GPIO: TCA9554 output set to 0x{:02X}", value);
 }

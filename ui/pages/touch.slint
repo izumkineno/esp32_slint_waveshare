@@ -1,0 +1,78 @@
+import { AppState, PageFrame } from "../state.slint";
+import { NavButton } from "../components/controls.slint";
+export { AppState }
+
+export component TouchPage inherits PageFrame {
+    // Page body is inserted below.
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: transparent;
+
+                Text {
+                    x: 0px;
+                    y: 30px;
+                    width: parent.width;
+                    text: "触摸计数";
+                    color: #25415f;
+                    font-size: 21px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+
+                Rectangle {
+                    x: 40px;
+                    y: 96px;
+                    width: 276px;
+                    height: 118px;
+                    background: #ffffff;
+                    border-radius: 22px;
+                    border-width: 1px;
+                    border-color: #d8e1eb;
+
+                    TouchArea {
+                        clicked => {
+                            root.touch-count += 1;
+                            root.status-text = "已收到触摸";
+                        }
+                    }
+
+                    Text {
+                        y: 18px;
+                        width: parent.width;
+                        text: "触摸次数";
+                        color: #71839a;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        y: 40px;
+                        width: parent.width;
+                        text: root.touch-count;
+                        color: #14253a;
+                        font-size: 40px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        y: 90px;
+                        width: parent.width;
+                        text: root.status-text;
+                        color: #4d7c9f;
+                        font-size: 10px;
+                        horizontal-alignment: center;
+                    }
+                }
+
+                NavButton {
+                    x: 112px;
+                    y: 270px;
+                    label: "返回功能菜单";
+                    activated => {
+                        root.menu-view = 0;
+                    }
+                }
+            }
+}

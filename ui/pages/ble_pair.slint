@@ -1,0 +1,105 @@
+import { AppState, PageFrame } from "../state.slint";
+import { KeyButton, NavButton } from "../components/controls.slint";
+export { AppState }
+
+export component BlePairPage inherits PageFrame {
+    // Page body is inserted below.
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: transparent;
+
+                Text {
+                    x: 0px;
+                    y: 18px;
+                    width: parent.width;
+                    text: "输入配对码";
+                    color: #25415f;
+                    font-size: 20px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    x: 16px;
+                    y: 43px;
+                    width: parent.width - 32px;
+                    text: root.ble-selected-name;
+                    color: #71839a;
+                    font-size: 10px;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    x: 18px;
+                    y: 63px;
+                    width: parent.width - 36px;
+                    text: root.ble-pair-status;
+                    color: #4d7c9f;
+                    font-size: 9px;
+                    horizontal-alignment: center;
+                }
+
+                Rectangle {
+                    x: 65px;
+                    y: 82px;
+                    width: 230px;
+                    height: 30px;
+                    background: #ffffff;
+                    border-radius: 12px;
+                    border-width: 1px;
+                    border-color: #d8e1eb;
+
+                    Text {
+                        width: parent.width;
+                        height: parent.height;
+                        text: root.ble-code;
+                        color: #14253a;
+                        font-size: 16px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                KeyButton { x: 65px; y: 115px; button-width: 70px; value: "1"; pressed => AppState.ble-key-pressed("1"); }
+                KeyButton { x: 145px; y: 115px; button-width: 70px; value: "2"; pressed => AppState.ble-key-pressed("2"); }
+                KeyButton { x: 225px; y: 115px; button-width: 70px; value: "3"; pressed => AppState.ble-key-pressed("3"); }
+                KeyButton { x: 65px; y: 149px; button-width: 70px; value: "4"; pressed => AppState.ble-key-pressed("4"); }
+                KeyButton { x: 145px; y: 149px; button-width: 70px; value: "5"; pressed => AppState.ble-key-pressed("5"); }
+                KeyButton { x: 225px; y: 149px; button-width: 70px; value: "6"; pressed => AppState.ble-key-pressed("6"); }
+                KeyButton { x: 65px; y: 183px; button-width: 70px; value: "7"; pressed => AppState.ble-key-pressed("7"); }
+                KeyButton { x: 145px; y: 183px; button-width: 70px; value: "8"; pressed => AppState.ble-key-pressed("8"); }
+                KeyButton { x: 225px; y: 183px; button-width: 70px; value: "9"; pressed => AppState.ble-key-pressed("9"); }
+                KeyButton { x: 145px; y: 217px; button-width: 70px; value: "0"; pressed => AppState.ble-key-pressed("0"); }
+                KeyButton { x: 225px; y: 217px; button-width: 70px; value: "BACK"; pressed => AppState.ble-key-pressed("BACK"); }
+
+                NavButton {
+                    x: 60px;
+                    y: 270px;
+                    button-width: 108px;
+                    label: "返回设备";
+                    activated => {
+                        root.menu-view = 8;
+                    }
+                }
+                if root.ble-pair-state == 6: NavButton {
+                    x: 188px;
+                    y: 270px;
+                    button-width: 108px;
+                    label: "确认配对";
+                    activated => {
+                        AppState.ble-pair-confirmed();
+                    }
+                }
+                if root.ble-pair-state != 6: NavButton {
+                    x: 188px;
+                    y: 270px;
+                    button-width: 108px;
+                    label: "开始配对";
+                    activated => {
+                        AppState.ble-pair-submit();
+                    }
+                }
+            }
+}

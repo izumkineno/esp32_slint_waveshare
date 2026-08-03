@@ -1,0 +1,85 @@
+import { AppState, PageFrame } from "../state.slint";
+import { MenuItem, NavButton } from "../components/controls.slint";
+export { AppState }
+
+export component WifiListPage inherits PageFrame {
+    // Page body is inserted below.
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: transparent;
+
+                Text {
+                    x: 0px;
+                    y: 14px;
+                    width: parent.width;
+                    text: "WiFi 列表";
+                    color: #25415f;
+                    font-size: 21px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    x: 24px;
+                    y: 43px;
+                    width: parent.width - 48px;
+                    text: root.wifi-scan-status;
+                    color: #71839a;
+                    font-size: 10px;
+                    horizontal-alignment: center;
+                }
+
+                if root.wifi-network-count == 0: Text {
+                    x: 0px;
+                    y: 150px;
+                    width: parent.width;
+                    text: root.wifi-scan-state == 2 ? "正在扫描附近网络…" : "暂无扫描结果";
+                    color: #71839a;
+                    font-size: 12px;
+                    horizontal-alignment: center;
+                }
+
+                Flickable {
+                    x: 24px;
+                    y: 61px;
+                    width: 312px;
+                    height: 202px;
+                    viewport-width: 312px;
+                    viewport-height: 488px;
+
+                    for network[index] in root.wifi-networks: MenuItem {
+                        x: 0px;
+                        y: index * 40px;
+                        width: 312px;
+                        label: network;
+                        detail: root.wifi-network-details[index];
+                        activated => {
+                            root.wifi-selected-ssid = network;
+                            root.wifi-password = "";
+                            root.menu-view = 7;
+                        }
+                    }
+                }
+
+                NavButton {
+                    x: 60px;
+                    y: 270px;
+                    button-width: 108px;
+                    label: "重新扫描";
+                    activated => {
+                        AppState.wifi-scan-requested();
+                    }
+                }
+
+                NavButton {
+                    x: 188px;
+                    y: 270px;
+                    button-width: 108px;
+                    label: "返回 WiFi";
+                    activated => {
+                        root.menu-view = 4;
+                    }
+                }
+            }
+}

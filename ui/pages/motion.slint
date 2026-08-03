@@ -1,0 +1,95 @@
+import { AppState, PageFrame } from "../state.slint";
+import { NavButton } from "../components/controls.slint";
+export { AppState }
+
+export component MotionPage inherits PageFrame {
+    // Page body is inserted below.
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: transparent;
+
+                Text {
+                    x: 0px;
+                    y: 30px;
+                    width: parent.width;
+                    text: "动态演示";
+                    color: #25415f;
+                    font-size: 21px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+
+                stage := Rectangle {
+                    x: 30px;
+                    y: 96px;
+                    width: 296px;
+                    height: 126px;
+                    background: #ffffff;
+                    border-radius: 24px;
+                    border-width: 1px;
+                    border-color: #d8e1eb;
+                    private property <angle> orbit-angle: (360deg * animation-tick() / 1600ms).mod(360deg);
+
+                    Rectangle {
+                        x: 60px;
+                        y: 18px;
+                        width: 176px;
+                        height: 88px;
+                        border-radius: 44px;
+                        border-width: 2px;
+                        border-color: #d8e7f1;
+                        background: transparent;
+                    }
+
+                    Rectangle {
+                        x: 128px + 78px * sin(stage.orbit-angle);
+                        y: 50px + 30px * sin(stage.orbit-angle + 90deg);
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 12px;
+                        background: #e76f51;
+                    }
+
+                    Rectangle {
+                        x: 52px + 180px * (stage.orbit-angle / 360deg);
+                        y: 112px;
+                        width: 8px;
+                        height: 4px;
+                        border-radius: 2px;
+                        background: #4d7c9f;
+                    }
+
+                    Text {
+                        x: 0px;
+                        y: 108px;
+                        width: parent.width;
+                        text: "运行中";
+                        color: #4d7c9f;
+                        font-size: 10px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                    }
+                }
+
+                Text {
+                    x: 0px;
+                    y: 236px;
+                    width: parent.width;
+                    text: "animation-tick() 驱动轨道";
+                    color: #25415f;
+                    font-size: 11px;
+                    horizontal-alignment: center;
+                }
+
+                NavButton {
+                    x: 112px;
+                    y: 270px;
+                    label: "返回功能菜单";
+                    activated => {
+                        root.menu-view = 0;
+                    }
+                }
+            }
+
+}
