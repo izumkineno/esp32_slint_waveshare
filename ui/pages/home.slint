@@ -1,52 +1,240 @@
 import { AppState, PageFrame } from "../state.slint";
 
 export { AppState }
-export component HomePage inherits PageFrame {
-    background: #0d1a2d;
+
+component DigitalDigit inherits Rectangle {
+    in property <int> value;
+    in property <color> segment-color: #4a2417;
+
+    width: 17px;
+    height: 25px;
+    background: transparent;
 
     Rectangle {
+        x: 3px;
+        y: 0px;
+        width: 11px;
+        height: 4px;
+        border-radius: 2px;
+        background: root.value == 0 || root.value == 2 || root.value == 3
+                || root.value == 5 || root.value == 6 || root.value == 7
+                || root.value == 8 || root.value == 9
+                ? root.segment-color : transparent;
+    }
+
+    Rectangle {
+        x: 0px;
+        y: 3px;
+        width: 4px;
+        height: 9px;
+        border-radius: 2px;
+        background: root.value == 0 || root.value == 4 || root.value == 5
+                || root.value == 6 || root.value == 8 || root.value == 9
+                ? root.segment-color : transparent;
+    }
+
+    Rectangle {
+        x: 13px;
+        y: 3px;
+        width: 4px;
+        height: 9px;
+        border-radius: 2px;
+        background: root.value == 0 || root.value == 1 || root.value == 2
+                || root.value == 3 || root.value == 4 || root.value == 7
+                || root.value == 8 || root.value == 9
+                ? root.segment-color : transparent;
+    }
+
+    Rectangle {
+        x: 3px;
+        y: 10px;
+        width: 11px;
+        height: 4px;
+        border-radius: 2px;
+        background: root.value == 2 || root.value == 3 || root.value == 4
+                || root.value == 5 || root.value == 6 || root.value == 8
+                || root.value == 9
+                ? root.segment-color : transparent;
+    }
+
+    Rectangle {
+        x: 0px;
+        y: 13px;
+        width: 4px;
+        height: 9px;
+        border-radius: 2px;
+        background: root.value == 0 || root.value == 2 || root.value == 6
+                || root.value == 8
+                ? root.segment-color : transparent;
+    }
+
+    Rectangle {
+        x: 13px;
+        y: 13px;
+        width: 4px;
+        height: 9px;
+        border-radius: 2px;
+        background: root.value == 0 || root.value == 1 || root.value == 3
+                || root.value == 4 || root.value == 5 || root.value == 6
+                || root.value == 7 || root.value == 8 || root.value == 9
+                ? root.segment-color : transparent;
+    }
+
+    Rectangle {
+        x: 3px;
+        y: 21px;
+        width: 11px;
+        height: 4px;
+        border-radius: 2px;
+        background: root.value == 0 || root.value == 2 || root.value == 3
+                || root.value == 5 || root.value == 6 || root.value == 8
+                || root.value == 9
+                ? root.segment-color : transparent;
+    }
+}
+
+export component HomePage inherits PageFrame {
+    background: transparent;
+    border-width: 0px;
+    clip: true;
+
+    property <int> elapsed-dot-count: root.seconds-value < 0
+            ? 0 : (root.seconds-value + 1) / 2;
+    property <[{ x: length, y: length }]> second-dot-positions: [
+        { x: 180px, y: 201px },
+        { x: 174px, y: 202px },
+        { x: 168px, y: 204px },
+        { x: 162px, y: 207px },
+        { x: 158px, y: 211px },
+        { x: 154px, y: 216px },
+        { x: 151px, y: 222px },
+        { x: 150px, y: 228px },
+        { x: 150px, y: 234px },
+        { x: 151px, y: 240px },
+        { x: 154px, y: 246px },
+        { x: 158px, y: 251px },
+        { x: 162px, y: 255px },
+        { x: 168px, y: 258px },
+        { x: 174px, y: 260px },
+        { x: 180px, y: 261px },
+        { x: 186px, y: 260px },
+        { x: 192px, y: 258px },
+        { x: 198px, y: 255px },
+        { x: 202px, y: 251px },
+        { x: 206px, y: 246px },
+        { x: 209px, y: 240px },
+        { x: 210px, y: 234px },
+        { x: 210px, y: 228px },
+        { x: 209px, y: 222px },
+        { x: 206px, y: 216px },
+        { x: 202px, y: 211px },
+        { x: 198px, y: 207px },
+        { x: 192px, y: 204px },
+        { x: 186px, y: 202px },
+    ];
+
+    Image {
+        width: 360px;
+        height: 360px;
+        source: @image-url("../../UI参考_360x360_clean.png");
+    }
+
+    for dot[index] in root.second-dot-positions: Rectangle {
+        x: dot.x - 2px;
+        y: dot.y - 2px;
+        width: 5px;
+        height: 5px;
+        border-radius: 2px;
+        border-width: 0px;
+        background: (root.seconds-value >= 0 && index < root.elapsed-dot-count)
+                ? #5a2e15 : #eda12d;
+        border-color: (root.seconds-value >= 0 && index < root.elapsed-dot-count)
+                ? #3e1f10 : #b86218;
+    }
+
+    Text {
+        x: 141px;
+        y: 50px;
+        width: 78px;
+        height: 20px;
+        text: root.date-text + " " + root.weekday-text;
+        color: #2d160d;
+        font-size: 11px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    Text {
+        x: 89px;
+        y: 119px;
+        width: 182px;
+        height: 72px;
+        text: root.clock-text;
+        color: #4a2417;
+        font-size: 64px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    if root.seconds-value >= 0: DigitalDigit {
+        x: 162px;
+        y: 218px;
+        value: root.seconds-value / 10;
+    }
+
+    if root.seconds-value >= 0: DigitalDigit {
+        x: 182px;
+        y: 218px;
+        value: Math.mod(root.seconds-value, 10);
+    }
+
+    if root.seconds-value < 0: Rectangle {
+        x: 165px;
+        y: 230px;
+        width: 13px;
+        height: 4px;
+        border-radius: 2px;
+        background: #4a2417;
+    }
+
+    if root.seconds-value < 0: Rectangle {
+        x: 184px;
+        y: 230px;
+        width: 13px;
+        height: 4px;
+        border-radius: 2px;
+        background: #4a2417;
+    }
+
+    // Slint pre-renders only characters found in static string literals for
+    // the software renderer. Keep the runtime weekday strings in that set.
+    Text {
+        visible: false;
+        width: 1px;
+        height: 1px;
+        font-size: 11px;
+        text: "(周日)(周一)(周二)(周三)(周四)(周五)(周六)";
+    }
+
+    TouchArea {
         width: parent.width;
         height: parent.height;
-        background: transparent;
+        property <length> gesture-start-x;
+        property <length> gesture-start-y;
 
-        Text {
-            x: 0px;
-            y: 82px;
-            width: parent.width;
-            text: root.date-text;
-            color: #a9bacb;
-            font-size: 16px;
-            horizontal-alignment: center;
-        }
-
-        Text {
-            x: 0px;
-            y: 116px;
-            width: parent.width;
-            text: root.clock-text;
-            color: #ffffff;
-            font-size: 58px;
-            font-weight: 600;
-            horizontal-alignment: center;
-        }
-            TouchArea {
-                width: parent.width;
-                height: parent.height;
-                property <length> gesture-start-x;
-                property <length> gesture-start-y;
-
-                pointer-event(event) => {
-                    if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                        self.gesture-start-x = self.mouse-x;
-                        self.gesture-start-y = self.mouse-y;
-                    } else if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
-                        if (self.mouse-x - self.gesture-start-x >= 60px
-                                && abs(self.mouse-y - self.gesture-start-y) <= 100px) {
-                            root.menu-view = 0;
-                            root.menu-open = true;
-                        }
-                    }
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                self.gesture-start-x = self.mouse-x;
+                self.gesture-start-y = self.mouse-y;
+            } else if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
+                if (self.mouse-x - self.gesture-start-x >= 60px
+                        && abs(self.mouse-y - self.gesture-start-y) <= 100px) {
+                    root.menu-view = 0;
+                    root.menu-open = true;
                 }
             }
         }
+    }
 }

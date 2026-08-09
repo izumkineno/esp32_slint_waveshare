@@ -21,7 +21,7 @@ use embedded_io_async::Write;
 use esp_hal::rng::Rng;
 use esp_radio::wifi::{
     ap::AccessPointConfig, scan::ScanConfig, sta::StationConfig, AuthenticationMethod, Config,
-    ControllerConfig, Interface, WifiController,
+    ControllerConfig, DisconnectReason, Interface, WifiController, WifiError,
 };
 use static_cell::StaticCell;
 
@@ -31,6 +31,12 @@ use crate::features::time_sync;
 pub const AP_SSID: &str = "ESP32-S3-配置";
 pub const AP_ADDRESS: Ipv4Addr = Ipv4Addr::new(192, 168, 4, 1);
 const WIFI_SCAN_LIMIT: usize = 8;
+
+// Station 认证方式：作为“可接受的最低安全等级”传给底层 threshold.authmode。
+// Wpa2Personal 已同时兼容 WPA2 / WPA2-WPA3 过渡 / WPA3（它们的等级都 >= WPA2）。
+// 只有当目标路由器是老旧的纯 WPA/WPA1 时，才需要改成 WpaWpa2Personal。
+// 底层 PMF 固定为 capable=true, required=false，无需也无法在此配置。
+const STATION_AUTH_METHOD: AuthenticationMethod = AuthenticationMethod::Wpa2Personal;
 
 fn ap_config() -> AccessPointConfig {
     AccessPointConfig::default()
@@ -47,7 +53,11 @@ fn station_config(credentials: WifiCredentials) -> StationConfig {
         .with_ssid(ssid)
         .with_password(String::from(password));
     if credentials.password_len == 0 {
+        // 开放网络：无密码即无认证。
         config = config.with_auth_method(AuthenticationMethod::None);
+    } else {
+        // 有密码：显式声明可接受的最低认证等级，避免依赖隐式默认值。
+        config = config.with_auth_method(STATION_AUTH_METHOD);
     }
     config
 }
@@ -115,9 +125,45 @@ async fn connect_station(
         }
         Err(error) => {
             crate::esp_warn!("WIFI: connection failed: {:?}", error);
+            if let WifiError::Disconnected(info) = error {
+                crate::esp_warn!(
+                    "WIFI: disconnect reason={:?}, rssi={} -> {}",
+                    info.reason,
+                    info.rssi,
+                    describe_disconnect_reason(info.reason)
+                );
+            }
             config::set_wifi_connection(config::WIFI_CONNECTION_FAILED, Some(ssid));
             false
         }
+    }
+}
+
+/// 把底层断连原因翻译成可操作的中文提示，便于从日志直接判断故障根因。
+fn describe_disconnect_reason(reason: DisconnectReason) -> &'static str {
+    match reason {
+        // 关联成功、卡在 WPA2 四次握手 —— PSK 不匹配的典型特征。
+        DisconnectReason::FourWayHandshakeTimeout
+        | DisconnectReason::HandshakeTimeout
+        | DisconnectReason::MicFailure => "密码错误：关联成功但握手失败，请核对 WiFi 密码",
+        // 认证阶段被拒。
+        DisconnectReason::AuthenticationFailed
+        | DisconnectReason::_802_1xAuthenticationFailed => "认证被拒：密码或认证方式不符",
+        // 安全能力/阈值不匹配 —— 才是真正的 WPA 版本或 PMF 问题。
+        DisconnectReason::NoAccessPointFoundWithCompatibleSecurity
+        | DisconnectReason::NoAccessPointFoundInAuthmodeThreshold => {
+            "安全能力不匹配：路由器加密方式与本机不符（此时才需调整 STATION_AUTH_METHOD）"
+        }
+        // 根本没找到 AP。
+        DisconnectReason::NoAccessPointFound => "未找到 AP：请确认 SSID 正确且为 2.4GHz 频段",
+        DisconnectReason::NoAccessPointFoundInRssiThreshold => "信号过弱：AP 存在但 RSSI 低于阈值",
+        DisconnectReason::BeaconTimeout | DisconnectReason::AssociationFailed => {
+            "关联失败或信标超时：信号弱或路由器拒绝，可靠近后重试"
+        }
+        DisconnectReason::AssociationLeave | DisconnectReason::AuthenticationLeave => {
+            "被路由器主动断开：可能触发了 MAC 过滤或连接数限制"
+        }
+        _ => "其他原因：参见上方 reason 字段",
     }
 }
 
@@ -192,7 +238,8 @@ macro_rules! mk_static {
 
 pub fn start(spawner: Spawner, wifi: esp_hal::peripherals::WIFI<'static>) {
     crate::esp_info!("WIFI: starting controller and network services");
-    let initial_config = wifi_config(false, true, None);
+    let boot_credentials = config::boot_wifi_credentials();
+    let initial_config = wifi_config(false, true, boot_credentials);
     let (mut controller, interfaces) = esp_radio::wifi::new(
         wifi,
         ControllerConfig::default().with_initial_config(initial_config),
@@ -235,11 +282,22 @@ pub fn start(spawner: Spawner, wifi: esp_hal::peripherals::WIFI<'static>) {
 
 #[embassy_executor::task]
 async fn wifi_controller(mut controller: WifiController<'static>) {
-    let mut last_credentials: Option<WifiCredentials> = None;
+    let boot_credentials = config::boot_wifi_credentials();
+    let mut last_credentials = boot_credentials;
     let mut ap_enabled = false;
     let mut station_enabled = true;
-    let mut auto_connect = false;
+    let mut auto_connect = boot_credentials.is_some();
     let mut retry_ticks = 0u8;
+
+    if let Some(credentials) = boot_credentials {
+        crate::esp_info!(
+            "WIFI: boot auto-connect enabled, ssid_len={}, password_len={}",
+            credentials.ssid_len,
+            credentials.password_len
+        );
+    } else {
+        crate::esp_info!("WIFI: boot auto-connect disabled; no SSID configured");
+    }
 
     config::set_wifi_mode_state(ap_enabled, station_enabled);
     config::set_wifi_connection(config::WIFI_CONNECTION_DISCONNECTED, None);
@@ -329,17 +387,17 @@ async fn wifi_controller(mut controller: WifiController<'static>) {
 
         if station_enabled && auto_connect && retry_ticks == 0 {
             if let Some(credentials) = last_credentials {
-                crate::esp_debug!("WIFI: attempting automatic station connection");
-                if !controller.is_connected()
-                    && !connect_station(&mut controller, credentials).await
-                {
-                    retry_ticks = 20;
+                if !controller.is_connected() {
+                    crate::esp_debug!("WIFI: attempting automatic station connection");
+                    if !connect_station(&mut controller, credentials).await {
+                        retry_ticks = 20;
+                    }
                 }
             }
         }
 
         retry_ticks = retry_ticks.saturating_sub(1);
-        Timer::after_millis(100).await;
+        Timer::after_millis(1000).await;
     }
 }
 

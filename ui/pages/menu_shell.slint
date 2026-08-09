@@ -9,6 +9,7 @@ import { TouchPage } from "./touch.slint";
 import { WifiControlPage } from "./wifi_control.slint";
 import { WifiListPage } from "./wifi_list.slint";
 import { WifiPasswordPage } from "./wifi_password.slint";
+import { SettingsPage } from "./settings.slint";
 
 export { AppState }
 export component MenuShell inherits StateRoot {
@@ -69,6 +70,10 @@ export component MenuShell inherits StateRoot {
         height: parent.height;
     }
     if root.menu-view == 9: BlePairPage {
+        width: parent.width;
+        height: parent.height;
+    }
+    if root.menu-view == 10: SettingsPage {
         width: parent.width;
         height: parent.height;
     }

@@ -25,10 +25,11 @@
 | `src/features/wifi_portal.rs` | WiFi SoftAP、DHCP、HTTP 配置门户和真实热点扫描 |
 | `src/features/bluetooth.rs` | BLE 广播、Central 扫描和 Security Manager 配对 |
 | `src/features/config.rs` | WiFi / BLE 命令、固定容量扫描快照和运行时配置状态 |
-| `src/ui_logic/clock.rs` | 时钟页面数据和 RTC 刷新逻辑 |
+| `src/ui_logic/clock.rs` | 时钟页面数据、RTC 刷新和 UTC 偏移处理 |
 | `src/ui_logic/input.rs` | 触摸轮询、Slint 事件转换和滑动识别 |
 | `src/ui/platform.rs` | Slint Platform 和软件渲染行缓冲适配 |
 | `ui/main.slint` | Slint 声明式界面 |
+| `UI参考_360x360_clean.png` | 360 × 360 表盘参考图底图,动态时间字段在 Slint 中覆盖 |
 | `ui/fonts/NotoSansSC-UI.ttf` | 从 Noto Sans SC 子集化的嵌入式中文字体 |
 | `ui/fonts/OFL.txt` | 字体许可证 |
 | `build.rs` | 编译 `.slint` 文件并嵌入软件渲染资源 |
@@ -47,6 +48,9 @@ board
 
 `src/bin/main.rs` 只负责组合这些层，不再直接包含 LCD、触摸、RTC、网络或
 Slint 渲染实现。
+
+可复用模块的边界、依赖、接入顺序和迁移检查清单见
+[`docs/reusable-modules.md`](docs/reusable-modules.md)。
 
 `esp_learn` 与 `esp_slint` 仍分别维护自己的 LCD vendor 初始化表：
 
@@ -134,6 +138,9 @@ UI 字符子集，并额外包含常用 CJK Unified Ideographs（`U+4E00–U+9FF
 目标 WiFi 名称、密码、蓝牙广播名称以及蓝牙开关。WiFi 提交后，设备在后台尝试连接
 目标网络；蓝牙名称在下一次广播周期使用。AP 和蓝牙默认关闭，重新上电后需要再次
 开启。
+
+Station 获取 DHCP 地址后，网络模块仅为 NTP 时间同步执行必要的 DNS 和 UDP/123
+请求，不再周期性访问 `example.com` 或发送 HTTPS `GET /`，避免产生频繁的外部网络请求。
 配置门户现在还提供两个扫描接口：
 
 - `GET /api/wifi/scan`：请求 WiFi 扫描；
@@ -174,7 +181,17 @@ IP、WiFi 扫描无结果。本工程现在已改为异步定时器。
 - AP 侧使用 `embassy-net::udp::UdpSocket` 和 `edge-dhcp` 协议层直接提供 DHCP，
   地址池为 `192.168.4.50–192.168.4.200`，因此连接 SoftAP 的设备可以正常获得
   `192.168.4.x` 地址并访问 `http://192.168.4.1/`。
-- 当前 WiFi 凭据和 BLE bond 不写入 Flash；设备重启后需要重新配置或重新配对。
+运行时通过网页提交的 WiFi 凭据和 BLE bond 仍不写入 Flash。若需设备开机自动连接，
+编辑 `src/features/config.rs` 中的 `BOOT_WIFI_SSID` 与 `BOOT_WIFI_PASSWORD`，然后重新
+编译并烧录；SSID 为空时关闭开机自动连接。凭据会直接编译进固件，请勿将真实密码提交
+到公共仓库。
+
+配置示例：
+
+```rust
+pub(crate) const BOOT_WIFI_SSID: &str = "your-wifi-name";
+pub(crate) const BOOT_WIFI_PASSWORD: &str = "your-wifi-password";
+```
 
 BLE Security Manager 使用 ESP32-S3 的 `RNG + ADC1` 熵源初始化随机种子，
 `src/board/mod.rs` 保留 `TrngSource` 的生命周期，直到主循环结束。
@@ -277,7 +294,7 @@ cargo +esp run --release
 - `ui/state.slint`：集中维护 `AppState` 全局状态；`MainWindow` 通过双向属性绑定保持
 Rust 端属性 API 稳定，Rust 回调统一注册到导出的 `AppState` 全局单例；
 - `ui/components/controls.slint`：共享的 `MenuItem`、`NavButton` 和 `KeyButton`；
-- `ui/pages/home.slint`：时钟主页；
+- `ui/pages/home.slint` 与 `UI参考_360x360_clean.png`：按 360 × 360 参考图复刻的时钟主页,仅日期、时间和秒数由运行时覆盖;
 - `ui/pages/menu.slint`、`touch.slint`、`motion.slint`、`performance.slint`：基础功能页；
 - `ui/pages/wifi_*.slint`、`ble_*.slint`：WiFi 和蓝牙控制、扫描、输入页面；
 - `ui/pages/menu_shell.slint`：页面路由和左右滑动返回逻辑。
@@ -294,13 +311,19 @@ Rust 端属性 API 稳定，Rust 回调统一注册到导出的 `AppState` 全�
 
 当前 UI 提供一个 360 × 360 圆形极简时钟主页和右滑进入的功能菜单：
 
-- 主页只显示 `HH:MM:SS` 时间和 `YYYY-MM-DD` 日期，不叠加设备型号、提示语或硬件信息；
-- 时间初始读取 PCF85063；Station 通过 DHCP 获取 IP 后，使用 `223.5.5.5` 解析 NTP
-  域名，再通过 UDP/123 校时，并将结果写回 PCF85063；
-- NTP 会依次尝试 `ntp.aliyun.com`、`ntp1.aliyun.com`、`pool.ntp.org`、
-  `time.cloudflare.com` 和 `time.google.com`；单个服务器超时不会阻塞其他服务器；
+- 主页参考圆形时钟布局：顶部显示日期和星期，中部显示 `HH:MM`，底部圆形区域显示秒数；
+- 秒数使用 30 个环形点按两秒一格显示，已过去的点为深色、剩余的点为橙色；
+  秒数数字使用七段样式，并与环形点同步更新；
+- 时间初始读取 PCF85063；Station 通过 DHCP 获取 IP 后，使用 DHCP 下发的 DNS
+  解析 NTP 域名，再通过 UDP/123 校时，并将结果写回 PCF85063；
+- NTP 会依次尝试配置的多个时间服务器；单个服务器超时不会阻塞其他服务器；
 - NTP 校时成功后每小时重新同步；Station 未连接、未获得 DHCP 地址或 DNS 不可达时，
   保持 RTC 当前时间并在 30 秒后自动重试；
+- RTC 内部保存 UTC；时间设置页默认使用 `UTC+8`，可按小时调整 `UTC-12` 至 `UTC+14`，
+  修改后立即刷新主页的本地时间显示；
+- NTP 请求需要网络出口和上游防火墙允许 UDP/123，并允许返回流量；DNS 查询成功不代表
+  UDP/123 可用。如果日志能解析 NTP 域名并出现 `sending NTP request`，随后所有服务器
+  都出现 `NTP response timed out`，应先在路由器、手机热点或企业网关放行 UDP/123。
 - 从主页向右滑动：进入功能菜单；
 - `触摸计数`：打开触摸计数页面，点击卡片累计触摸次数；
 - `动态演示`：打开使用 `animation-tick()` 驱动轨道运动的动画页面；
@@ -308,6 +331,7 @@ Rust 端属性 API 稳定，Rust 回调统一注册到导出的 `AppState` 全�
 - `清零计数`：清零触摸计数；
 - `WiFi 控制`：显示 AP 和目标网络连接状态，提供 AP 开关、WiFi 开关和断开连接按钮；
 - `蓝牙控制`：显示广播状态，提供蓝牙开关和扫描入口；
+- `时间设置`：调整 UTC 偏移时间，恢复默认值后回到 `UTC+8`；
 - 功能菜单、扫描列表和键盘使用 `Flickable` 处理溢出内容；所有按钮在按下时有
   颜色反馈；在菜单或功能页向左滑动仍可返回时钟主页。
 
@@ -347,6 +371,7 @@ WifiPasswordPage  pages/wifi_password.slint
 BleControlPage    pages/ble_control.slint
 BleScanPage       pages/ble_scan.slint
 BlePairPage       pages/ble_pair.slint
+SettingsPage       pages/settings.slint
 ```
 
 需要预览扫描结果时，通过导出的 `AppState` 全局单例注入数据：

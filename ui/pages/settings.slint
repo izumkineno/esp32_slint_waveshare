@@ -1,0 +1,125 @@
+import { AppState, PageFrame } from "../state.slint";
+import { NavButton } from "../components/controls.slint";
+export { AppState }
+
+export component SettingsPage inherits PageFrame {
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: transparent;
+
+        Text {
+            x: 0px;
+            y: 30px;
+            width: parent.width;
+            text: "时间设置";
+            color: #25415f;
+            font-size: 21px;
+            font-weight: 600;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            x: 0px;
+            y: 58px;
+            width: parent.width;
+            text: "校准本地时间显示";
+            color: #71839a;
+            font-size: 10px;
+            horizontal-alignment: center;
+        }
+
+        Rectangle {
+            x: 30px;
+            y: 82px;
+            width: 296px;
+            height: 138px;
+            background: #ffffff;
+            border-radius: 22px;
+            border-width: 1px;
+            border-color: #d8e1eb;
+
+            Text {
+                x: 18px;
+                y: 15px;
+                width: parent.width - 36px;
+                text: "UTC 偏移时间";
+                color: #14253a;
+                font-size: 12px;
+                font-weight: 600;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                x: 72px;
+                y: 43px;
+                width: 112px;
+                text: root.utc-offset-hours >= 0 ? "UTC+" : "UTC-";
+                color: #25415f;
+                font-size: 17px;
+                horizontal-alignment: right;
+            }
+
+            Text {
+                x: 188px;
+                y: 40px;
+                width: 42px;
+                text: abs(root.utc-offset-hours);
+                color: #14253a;
+                font-size: 25px;
+                font-weight: 600;
+                horizontal-alignment: left;
+            }
+
+            Text {
+                x: 18px;
+                y: 82px;
+                width: parent.width - 36px;
+                text: "范围 UTC-12 至 UTC+14，默认 UTC+8";
+                color: #71839a;
+                font-size: 9px;
+                horizontal-alignment: center;
+            }
+        }
+
+        NavButton {
+            x: 48px;
+            y: 232px;
+            button-width: 112px;
+            label: "恢复默认";
+            activated => {
+                AppState.utc-offset-reset-requested();
+            }
+        }
+
+        NavButton {
+            x: 196px;
+            y: 232px;
+            button-width: 112px;
+            label: "返回菜单";
+            activated => {
+                root.menu-view = 0;
+            }
+        }
+
+        NavButton {
+            x: 58px;
+            y: 180px;
+            button-width: 82px;
+            label: "UTC -";
+            activated => {
+                AppState.utc-offset-adjust-requested(-1);
+            }
+        }
+
+        NavButton {
+            x: 216px;
+            y: 180px;
+            button-width: 82px;
+            label: "UTC +";
+            activated => {
+                AppState.utc-offset-adjust-requested(1);
+            }
+        }
+    }
+}

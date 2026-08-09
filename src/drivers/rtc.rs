@@ -66,6 +66,42 @@ impl DateTime {
             second: (seconds_today % 60) as u8,
         })
     }
+    pub fn to_unix_seconds(self) -> Option<u64> {
+        if !self.is_valid() || self.year > 2069 {
+            return None;
+        }
+
+        const SECONDS_PER_DAY: u64 = 86_400;
+        let mut days = 0u64;
+        let mut year = 1970u16;
+        while year < self.year {
+            days += u64::from(days_in_year(year));
+            year += 1;
+        }
+
+        let mut month = 1u8;
+        while month < self.month {
+            days += u64::from(days_in_month(self.year, month));
+            month += 1;
+        }
+        days += u64::from(self.day - 1);
+
+        days.checked_mul(SECONDS_PER_DAY)?
+            .checked_add(u64::from(self.hour) * 3_600)?
+            .checked_add(u64::from(self.minute) * 60)?
+            .checked_add(u64::from(self.second))
+    }
+
+    pub fn with_utc_offset(self, offset_hours: i8) -> Option<Self> {
+        let timestamp = self.to_unix_seconds()?;
+        let offset_seconds = i64::from(offset_hours) * 3_600;
+        let adjusted = if offset_seconds >= 0 {
+            timestamp.checked_add(offset_seconds as u64)?
+        } else {
+            timestamp.checked_sub((-offset_seconds) as u64)?
+        };
+        Self::from_unix_seconds(adjusted)
+    }
 }
 
 pub fn init(touch: &mut Cst816Touch<'_>) -> Result<(), Error> {

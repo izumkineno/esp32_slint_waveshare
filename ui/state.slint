@@ -3,7 +3,11 @@ export global AppState {
     in-out property <int> fps: 0;
     in-out property <string> status-text: "就绪";
     in-out property <string> clock-text: "--:--:--";
-    in-out property <string> date-text: "RTC 未设置";
+    in-out property <string> date-text: "--日";
+    in-out property <string> seconds-text: "--";
+    in-out property <int> seconds-value: -1;
+    in-out property <string> weekday-text: "(--)";
+    in-out property <int> utc-offset-hours: 8;
     in-out property <bool> menu-open: false;
     in-out property <int> menu-view: 0;
     in-out property <int> wifi-scan-state: 0;
@@ -45,6 +49,8 @@ export global AppState {
     callback ble-pair-submit();
     callback ble-pair-confirmed();
     callback clear-requested();
+    callback utc-offset-adjust-requested(int);
+    callback utc-offset-reset-requested();
 }
 
 export component StateRoot inherits Rectangle {
@@ -57,6 +63,10 @@ export component StateRoot inherits Rectangle {
     in-out property <string> status-text <=> AppState.status-text;
     in-out property <string> clock-text <=> AppState.clock-text;
     in-out property <string> date-text <=> AppState.date-text;
+    in-out property <string> seconds-text <=> AppState.seconds-text;
+    in-out property <int> seconds-value <=> AppState.seconds-value;
+    in-out property <string> weekday-text <=> AppState.weekday-text;
+    in-out property <int> utc-offset-hours <=> AppState.utc-offset-hours;
     in-out property <bool> menu-open <=> AppState.menu-open;
     in-out property <int> menu-view <=> AppState.menu-view;
     in-out property <int> wifi-scan-state <=> AppState.wifi-scan-state;

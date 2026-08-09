@@ -5,6 +5,14 @@ use trouble_host::Address;
 
 pub(crate) const MAX_SCAN_RESULTS: usize = 12;
 
+// Set these values before building to enable a station connection at boot.
+// The credentials are embedded in the firmware image; leave the SSID empty to disable it.
+pub(crate) const BOOT_WIFI_SSID: &str = "CP";
+pub(crate) const BOOT_WIFI_PASSWORD: &str = "123456789";
+pub(crate) const DEFAULT_UTC_OFFSET_HOURS: i8 = 8;
+const MIN_UTC_OFFSET_HOURS: i8 = -12;
+const MAX_UTC_OFFSET_HOURS: i8 = 14;
+
 pub(crate) const WIFI_SCAN_IDLE: u8 = 0;
 pub(crate) const WIFI_SCAN_REQUESTED: u8 = 1;
 pub(crate) const WIFI_SCAN_RUNNING: u8 = 2;
@@ -54,6 +62,17 @@ impl WifiCredentials {
         credentials.ssid_len = copy_string(&mut credentials.ssid, ssid);
         credentials.password_len = copy_string(&mut credentials.password, password);
         credentials
+    }
+}
+
+pub(crate) fn boot_wifi_credentials() -> Option<WifiCredentials> {
+    if BOOT_WIFI_SSID.is_empty() {
+        None
+    } else {
+        Some(WifiCredentials::from_strings(
+            BOOT_WIFI_SSID,
+            BOOT_WIFI_PASSWORD,
+        ))
     }
 }
 
@@ -139,6 +158,7 @@ static WIFI_CONTROL: Mutex<RefCell<WifiControlCommand>> =
 static WIFI_STATUS_STATE: Mutex<RefCell<WifiStatusSnapshot>> =
     Mutex::new(RefCell::new(WifiStatusSnapshot::initial()));
 static TIME_SYNC_TIMESTAMP: Mutex<RefCell<Option<u64>>> = Mutex::new(RefCell::new(None));
+static UTC_OFFSET_HOURS: Mutex<RefCell<i8>> = Mutex::new(RefCell::new(DEFAULT_UTC_OFFSET_HOURS));
 
 pub(crate) fn store_wifi_command(credentials: WifiCredentials) {
     crate::esp_info!(
@@ -239,6 +259,36 @@ pub(crate) fn take_time_sync() -> Option<u64> {
         crate::esp_debug!("TIME: network timestamp consumed by UI");
     }
     timestamp
+}
+
+pub(crate) fn utc_offset_hours() -> i8 {
+    critical_section::with(|cs| *UTC_OFFSET_HOURS.borrow(cs).borrow())
+}
+
+pub(crate) fn adjust_utc_offset(delta: i32) -> i8 {
+    let current = utc_offset_hours();
+    let next = (i32::from(current) + delta).clamp(
+        i32::from(MIN_UTC_OFFSET_HOURS),
+        i32::from(MAX_UTC_OFFSET_HOURS),
+    ) as i8;
+    if next != current {
+        critical_section::with(|cs| {
+            *UTC_OFFSET_HOURS.borrow(cs).borrow_mut() = next;
+        });
+        crate::esp_info!("TIME: UTC offset changed to UTC{:+}", next);
+    }
+    next
+}
+
+pub(crate) fn reset_utc_offset() -> i8 {
+    critical_section::with(|cs| {
+        *UTC_OFFSET_HOURS.borrow(cs).borrow_mut() = DEFAULT_UTC_OFFSET_HOURS;
+    });
+    crate::esp_info!(
+        "TIME: UTC offset reset to UTC{:+}",
+        DEFAULT_UTC_OFFSET_HOURS
+    );
+    DEFAULT_UTC_OFFSET_HOURS
 }
 
 pub(crate) fn request_wifi_scan() {

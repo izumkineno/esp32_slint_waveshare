@@ -36,7 +36,7 @@ export component MenuPage inherits PageFrame {
                     width: 308px;
                     height: 214px;
                     viewport-width: 308px;
-                    viewport-height: 320px;
+                    viewport-height: 360px;
 
                     MenuItem {
                         x: 16px;
@@ -98,9 +98,19 @@ export component MenuPage inherits PageFrame {
                         }
                     }
 
+                    MenuItem {
+                        x: 16px;
+                        y: 268px;
+                        label: "时间设置";
+                        detail: "调整 UTC 偏移和时间显示";
+                        activated => {
+                            root.menu-view = 10;
+                        }
+                    }
+
                     Text {
                         x: 16px;
-                        y: 274px;
+                        y: 318px;
                         width: 276px;
                         text: "向左滑动返回主页";
                         color: #71839a;

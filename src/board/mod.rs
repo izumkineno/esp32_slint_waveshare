@@ -5,7 +5,7 @@
 
 use embassy_executor::Spawner;
 use esp_hal::{
-    interrupt::software::SoftwareInterruptControl, peripherals::Peripherals,
+    interrupt::software::SoftwareInterruptControl, peripherals::Peripherals, ram,
     timer::timg::TimerGroup,
 };
 
@@ -26,9 +26,11 @@ pub fn init(
     esp_hal::rng::TrngSource<'static>,
 ) {
     crate::esp_info!("BOARD: initializing ESP32-S3 peripherals");
-    let trng_source = esp_hal::rng::TrngSource::new(peripherals.RNG, peripherals.ADC1);
-    crate::esp_debug!("BOARD: TRNG source acquired");
-    // starting any RTOS task so every service sees the complete heap.
+
+    // 堆区注册顺序决定全局分配器(空 caps)的 first-fit 落点。
+    // 必须先注册 PSRAM(External),让应用侧(Slint / String / Vec)优先用 8MB 外部内存;
+    // 100KB 内部 DRAM 全部留给 esp-radio 的 malloc_internal 与 WiFi/BLE DMA(它们只能用 Internal)。
+    // 顺序错了会导致应用吃光内部 RAM,WiFi 连接/发包报 ESP_ERR_NO_MEM(257)。
     esp_alloc::psram_allocator!(
         peripherals.PSRAM,
         esp_hal::psram,
@@ -37,7 +39,18 @@ pub fn init(
             ..Default::default()
         }
     );
-    crate::esp_info!("BOARD: PSRAM allocator initialized");
+    crate::esp_info!("BOARD: PSRAM allocator initialized (registered first)");
+
+    // 从 bootloader 回收的 RAM 与常规 DRAM,均为 Internal,供无线栈独占。
+    esp_alloc::heap_allocator!(#[ram(reclaimed)] size: 64 * 1024);
+    esp_alloc::heap_allocator!(size: 36 * 1024);
+    crate::esp_info!(
+        "BOARD: internal heap registered, free_internal={} bytes",
+        esp_alloc::HEAP.free_caps(esp_alloc::MemoryCapability::Internal.into())
+    );
+
+    let trng_source = esp_hal::rng::TrngSource::new(peripherals.RNG, peripherals.ADC1);
+    crate::esp_debug!("BOARD: TRNG source acquired");
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     let sw_int = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);

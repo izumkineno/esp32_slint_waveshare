@@ -10,7 +10,7 @@ extern crate alloc;
 use alloc::string::String;
 use core::fmt::Write as _;
 use embassy_executor::Spawner;
-use esp_hal::{clock::CpuClock, ram, time::Instant};
+use esp_hal::{clock::CpuClock, time::Instant};
 use slint::{
     platform::software_renderer::{MinimalSoftwareWindow, RepaintBufferType, Rgb565Pixel},
     ComponentHandle, ModelRc, PhysicalSize, SharedString, VecModel,
@@ -48,10 +48,8 @@ async fn main(spawner: Spawner) -> ! {
     let peripherals = esp_hal::init(config);
     crate::esp_info!("BOOT: ESP32-S3 peripherals initialized");
 
-    esp_alloc::heap_allocator!(#[ram(reclaimed)] size: 64 * 1024);
-    esp_alloc::heap_allocator!(size: 36 * 1024);
-    crate::esp_info!("BOOT: heap allocators initialized");
-
+    // 堆区(PSRAM 优先 + 内部 DRAM)在 board::init 内按正确顺序注册,
+    // 以保证 WiFi/BLE 的 malloc_internal 与 DMA 独占内部 RAM。
     let (mut display, mut touch, _trng_source) = board::init(peripherals, spawner);
     crate::esp_info!("BOARD: drivers and background tasks initialized");
     let rtc_initialized = ui_logic::clock::initialize_rtc(&mut touch);
@@ -70,6 +68,7 @@ async fn main(spawner: Spawner) -> ! {
 
     let ui = MainWindow::new().unwrap();
     crate::esp_info!("UI: MainWindow created");
+    ui.set_utc_offset_hours(i32::from(features::config::utc_offset_hours()));
     let clear_ui = ui.as_weak();
     ui.global::<AppState>().on_clear_requested(move || {
         if let Some(ui) = clear_ui.upgrade() {
@@ -100,6 +99,24 @@ async fn main(spawner: Spawner) -> ! {
         crate::esp_info!("WIFI: disconnect requested");
         features::config::request_wifi_disconnect();
     });
+
+    let utc_offset_ui = ui.as_weak();
+    ui.global::<AppState>()
+        .on_utc_offset_adjust_requested(move |delta| {
+            let offset = features::config::adjust_utc_offset(delta);
+            if let Some(ui) = utc_offset_ui.upgrade() {
+                ui.set_utc_offset_hours(i32::from(offset));
+            }
+        });
+
+    let utc_offset_reset_ui = ui.as_weak();
+    ui.global::<AppState>()
+        .on_utc_offset_reset_requested(move || {
+            let offset = features::config::reset_utc_offset();
+            if let Some(ui) = utc_offset_reset_ui.upgrade() {
+                ui.set_utc_offset_hours(i32::from(offset));
+            }
+        });
 
     let wifi_key_ui = ui.as_weak();
     ui.global::<AppState>().on_wifi_key_pressed(move |key| {
@@ -228,6 +245,7 @@ async fn main(spawner: Spawner) -> ! {
     let mut touch_start = None;
     let mut rtc_window_start = Instant::now();
     let mut fps_window_start = Instant::now();
+    let mut heap_window_start = Instant::now();
     let mut rendered_frames: u32 = 0;
     let mut last_wifi_scan_state = u8::MAX;
     let mut last_wifi_scan_count = usize::MAX;
@@ -237,6 +255,7 @@ async fn main(spawner: Spawner) -> ! {
     let mut last_ble_pair_code = u32::MAX;
     let mut last_wifi_status = features::config::copy_wifi_status();
     let mut last_ble_enabled = features::config::copy_ble_enabled();
+    let mut last_utc_offset = features::config::utc_offset_hours();
 
     loop {
         let wifi_status = features::config::copy_wifi_status();
@@ -270,6 +289,19 @@ async fn main(spawner: Spawner) -> ! {
             update_ble_pair_ui(&ui, ble_pair);
             last_ble_pair_state = ble_pair.state;
             last_ble_pair_code = ble_pair.display_code;
+        }
+
+        let utc_offset = features::config::utc_offset_hours();
+        if utc_offset != last_utc_offset {
+            crate::esp_info!(
+                "TIME: refreshing clock after UTC offset change to UTC{:+}",
+                utc_offset
+            );
+            ui.set_utc_offset_hours(i32::from(utc_offset));
+            if rtc_initialized {
+                ui_logic::clock::refresh_rtc(&ui, &mut touch);
+            }
+            last_utc_offset = utc_offset;
         }
 
         if rtc_initialized {
@@ -325,6 +357,17 @@ async fn main(spawner: Spawner) -> ! {
             rendered_frames = 0;
             // crate::esp_debug!("UI: render fps={}", fps);
             fps_window_start = Instant::now();
+        }
+
+        // 每 10 秒打印内部/外部堆余量,用于确认 WiFi 独占的内部 RAM 未被榨干。
+        // 若 free_internal 长期接近 0,WiFi 发包会再次出现 ESP_ERR_NO_MEM(257)。
+        if heap_window_start.elapsed().as_millis() >= 10_000 {
+            crate::esp_info!(
+                "MEM: free_internal={} bytes, free_external={} bytes",
+                esp_alloc::HEAP.free_caps(esp_alloc::MemoryCapability::Internal.into()),
+                esp_alloc::HEAP.free_caps(esp_alloc::MemoryCapability::External.into())
+            );
+            heap_window_start = Instant::now();
         }
 
         embassy_time::Timer::after_millis(10).await;
