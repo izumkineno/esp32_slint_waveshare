@@ -7,7 +7,7 @@ use slint::platform::{
     Platform,
 };
 
-use crate::drivers::display::St77916Display;
+use esp_slint_bsp::drivers::display::St77916Display;
 
 pub struct EspPlatform {
     window: Rc<MinimalSoftwareWindow>,

@@ -16,18 +16,10 @@ use slint::{
     ComponentHandle, ModelRc, PhysicalSize, SharedString, VecModel,
 };
 
-#[path = "../logging.rs"]
-mod logging;
+use esp_slint_bsp::{board, drivers, features};
+use esp_slint_bsp::{esp_debug, esp_info, esp_warn};
 
-#[path = "../board/mod.rs"]
-mod board;
-#[path = "../drivers/mod.rs"]
-mod drivers;
-#[path = "../features/mod.rs"]
-mod features;
-#[path = "../ui/mod.rs"]
 mod ui;
-#[path = "../ui_logic/mod.rs"]
 mod ui_logic;
 
 slint::include_modules!();

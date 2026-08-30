@@ -147,8 +147,9 @@ fn describe_disconnect_reason(reason: DisconnectReason) -> &'static str {
         | DisconnectReason::HandshakeTimeout
         | DisconnectReason::MicFailure => "密码错误：关联成功但握手失败，请核对 WiFi 密码",
         // 认证阶段被拒。
-        DisconnectReason::AuthenticationFailed
-        | DisconnectReason::_802_1xAuthenticationFailed => "认证被拒：密码或认证方式不符",
+        DisconnectReason::AuthenticationFailed | DisconnectReason::_802_1xAuthenticationFailed => {
+            "认证被拒：密码或认证方式不符"
+        }
         // 安全能力/阈值不匹配 —— 才是真正的 WPA 版本或 PMF 问题。
         DisconnectReason::NoAccessPointFoundWithCompatibleSecurity
         | DisconnectReason::NoAccessPointFoundInAuthmodeThreshold => {

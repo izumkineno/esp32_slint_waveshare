@@ -2110,6 +2110,22 @@ dependencies = [
 name = "esp_slint"
 version = "0.1.0"
 dependencies = [
+ "embassy-executor",
+ "embassy-time",
+ "esp-alloc",
+ "esp-bootloader-esp-idf",
+ "esp-hal",
+ "esp-println",
+ "esp-rtos",
+ "esp_slint_bsp",
+ "slint",
+ "slint-build",
+]
+
+[[package]]
+name = "esp_slint_bsp"
+version = "0.1.0"
+dependencies = [
  "bt-hci",
  "critical-section",
  "edge-dhcp",
@@ -2126,7 +2142,6 @@ dependencies = [
  "esp-radio",
  "esp-rtos",
  "slint",
- "slint-build",
  "static_cell",
  "trouble-host",
 ]

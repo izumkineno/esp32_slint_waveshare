@@ -13,52 +13,57 @@
 
 ## 工程结构
 
-| 文件 | 作用 |
-| --- | --- |
-| `src/bin/main.rs` | 应用组合根、主循环和 Slint 窗口生命周期 |
-| `src/board/mod.rs` | 开发板外设所有权、PSRAM、RTOS 和功能启动编排 |
-| `src/drivers/display/mod.rs` | ST77916 QSPI 驱动和 Slint 行缓冲输出 |
-| `src/drivers/display/panel_init.rs` | ST77916 vendor 初始化命令流 |
-| `src/drivers/touch/mod.rs` | CST816S 触摸驱动和共享 I2C 事务 |
-| `src/drivers/rtc.rs` | PCF85063 RTC 初始化、BCD 解码和日期时间读取 |
-| `src/drivers/tca9554.rs` | TCA9554PWR I2C GPIO 扩展器和 LCD / 触摸复位线 |
-| `src/features/wifi_portal.rs` | WiFi SoftAP、DHCP、HTTP 配置门户和真实热点扫描 |
-| `src/features/bluetooth.rs` | BLE 广播、Central 扫描和 Security Manager 配对 |
-| `src/features/config.rs` | WiFi / BLE 命令、固定容量扫描快照和运行时配置状态 |
-| `src/ui_logic/clock.rs` | 时钟页面数据、RTC 刷新和 UTC 偏移处理 |
-| `src/ui_logic/input.rs` | 触摸轮询、Slint 事件转换和滑动识别 |
-| `src/ui/platform.rs` | Slint Platform 和软件渲染行缓冲适配 |
-| `ui/main.slint` | Slint 声明式界面 |
-| `UI参考_360x360_clean.png` | 360 × 360 表盘参考图底图,动态时间字段在 Slint 中覆盖 |
-| `ui/fonts/NotoSansSC-UI.ttf` | 从 Noto Sans SC 子集化的嵌入式中文字体 |
-| `ui/fonts/OFL.txt` | 字体许可证 |
-| `build.rs` | 编译 `.slint` 文件并嵌入软件渲染资源 |
-| `.cargo/config.toml` | Xtensa 目标、`build-std` 和 `espflash` 配置 |
-| `Cargo.lock` | 与当前 `esp` Rust toolchain 兼容的依赖锁定版本 |
+| 文件                                      | 作用                                                  |
+| ----------------------------------------- | ----------------------------------------------------- |
+| `src/main.rs`                           | 应用组合根、主循环和 Slint 窗口生命周期               |
+| `bsp/src/lib.rs`                        | 独立板级支持 crate 的公共入口                         |
+| `bsp/src/board/mod.rs`                  | 开发板外设所有权、PSRAM、RTOS 和功能启动编排          |
+| `bsp/src/drivers/display/mod.rs`        | ST77916 QSPI 驱动和 Slint 行缓冲输出                  |
+| `bsp/src/drivers/display/panel_init.rs` | ST77916 vendor 初始化命令流                           |
+| `bsp/src/drivers/touch/mod.rs`          | CST816S 触摸驱动和共享 I2C 事务                       |
+| `bsp/src/drivers/rtc.rs`                | PCF85063 RTC 初始化、BCD 解码和日期时间读取           |
+| `bsp/src/drivers/tca9554.rs`            | TCA9554PWR I2C GPIO 扩展器和 LCD / 触摸复位线         |
+| `bsp/src/features/wifi_portal.rs`      | WiFi SoftAP、DHCP、HTTP 配置门户和真实热点扫描        |
+| `bsp/src/features/bluetooth.rs`         | BLE 广播、Central 扫描和 Security Manager 配对        |
+| `bsp/src/features/config.rs`            | WiFi / BLE 命令、固定容量扫描快照和运行时配置状态     |
+| `src/ui_logic/clock.rs`                 | 时钟页面数据、RTC 刷新和 UTC 偏移处理                 |
+| `src/ui_logic/input.rs`                 | 触摸轮询、Slint 事件转换和滑动识别                    |
+| `src/ui/platform.rs`                    | Slint Platform 和软件渲染行缓冲适配                   |
+| `ui/main.slint`                         | Slint 声明式界面                                      |
+| `docs/UI参考_360x360_clean.png`         | 360 × 360 表盘参考图底图,动态时间字段在 Slint 中覆盖 |
+| `ui/fonts/NotoSansSC-UI.ttf`            | 从 Noto Sans SC 子集化的嵌入式中文字体                |
+| `ui/fonts/OFL.txt`                      | 字体许可证                                            |
+| `build.rs`                              | 编译`.slint` 文件并嵌入软件渲染资源                 |
+| `Cargo.toml`                            | 应用与独立 BSP workspace 配置                         |
+| `.cargo/config.toml`                    | Xtensa 目标、`build-std` 和 `espflash` 配置       |
+| `Cargo.lock`                            | 与当前`esp` Rust toolchain 兼容的依赖锁定版本       |
 
-代码按四层组织：
+代码按 BSP 与应用两层组织：
 
 ```text
-board
+bsp
   ├── drivers       LCD / touch / RTC / I2C 外设协议
   ├── features      WiFi 配网 / BLE 广播 / 共享配置
+  ├── board         PSRAM / RTOS / 外设所有权与启动顺序
+  └── logging.rs    设备监视器日志宏
+src
   ├── ui_logic      时钟状态 / 触摸输入 / 页面行为
   └── ui            Slint Platform / 行缓冲渲染适配
 ```
 
-`src/bin/main.rs` 只负责组合这些层，不再直接包含 LCD、触摸、RTC、网络或
-Slint 渲染实现。
+`src/main.rs` 只负责组合 BSP、UI 和页面逻辑；板级驱动、无线任务、
+共享状态与设备日志均由 `esp_slint_bsp` crate 提供。
 
 可复用模块的边界、依赖、接入顺序和迁移检查清单见
 [`docs/reusable-modules.md`](docs/reusable-modules.md)。
 
 `esp_learn` 与 `esp_slint` 仍分别维护自己的 LCD vendor 初始化表：
 
-- `esp_learn/src/panel_init.rs`
-- `esp_slint/src/drivers/display/panel_init.rs`
+- `../esp_learn/src/panel_init.rs`
+- `bsp/src/drivers/display/panel_init.rs`
 
-`esp_slint/src/drivers/touch/mod.rs` 现在维护 Slint 工程自己的 CST816S 驱动副本，
-避免入口文件通过 `#[path]` 依赖另一个工程的目录结构。PCF85063 与 CST816S
+`bsp/src/drivers/touch/mod.rs` 维护 Slint 工程自己的 CST816S 驱动副本，
+避免应用入口通过 `#[path]` 依赖另一个工程的目录结构。PCF85063 与 CST816S
 继续共用同一条 I2C 总线。
 
 ## Slint 渲染流程
@@ -79,7 +84,7 @@ ST77916 QSPI line write
 
 工程使用 `RepaintBufferType::ReusedBuffer`，Slint 只把需要重绘的行写入单行缓冲区，再通过 ST77916 QSPI 刷新 LCD，不在应用入口栈上分配完整的 360 × 360 framebuffer。
 
-`src/drivers/display/panel_init.rs` 使用紧凑二进制命令流保存初始化表。每条记录
+`bsp/src/drivers/display/panel_init.rs` 使用紧凑二进制命令流保存初始化表。每条记录
 包含命令字节、数据长度标志、参数数据，以及可选的 little-endian 延时值；运行时
 由迭代器解码，不再为每条命令保存独立的 slice 指针和结构体元数据。
 
@@ -92,47 +97,47 @@ UI 字符子集，并额外包含常用 CJK Unified Ideographs（`U+4E00–U+9FF
 
 ## 硬件连接
 
-| 信号 | 配置 |
-| --- | --- |
-| I2C SDA / SCL | GPIO11 / GPIO10 |
-| TCA9554PWR | I2C 地址 `0x20` |
-| LCD reset | TCA9554PWR EXIO2 |
-| Touch reset | TCA9554PWR EXIO1 |
-| LCD QSPI SCK | GPIO40 |
+| 信号                       | 配置                              |
+| -------------------------- | --------------------------------- |
+| I2C SDA / SCL              | GPIO11 / GPIO10                   |
+| TCA9554PWR                 | I2C 地址`0x20`                  |
+| LCD reset                  | TCA9554PWR EXIO2                  |
+| Touch reset                | TCA9554PWR EXIO1                  |
+| LCD QSPI SCK               | GPIO40                            |
 | LCD QSPI D0 / D1 / D2 / D3 | GPIO46 / GPIO45 / GPIO42 / GPIO41 |
-| LCD CS | GPIO21 |
-| LCD backlight | GPIO5 |
-| CST816S | I2C 地址 `0x15` |
-| PCF85063 | I2C 地址 `0x51` |
-| CST816S INT | GPIO4 |
-| LCD 分辨率 | 360 × 360 |
+| LCD CS                     | GPIO21                            |
+| LCD backlight              | GPIO5                             |
+| CST816S                    | I2C 地址`0x15`                  |
+| PCF85063                   | I2C 地址`0x51`                  |
+| CST816S INT                | GPIO4                             |
+| LCD 分辨率                 | 360 × 360                        |
 
 ## Waveshare 官方硬件摘要
 
 本工程对应 Waveshare `ESP32-S3-Touch-LCD-1.85C`。官方页面：
-<https://docs.waveshare.net/ESP32-S3-Touch-LCD-1.85C/>
+[https://docs.waveshare.net/ESP32-S3-Touch-LCD-1.85C/](https://docs.waveshare.net/ESP32-S3-Touch-LCD-1.85C/)
 
-| 模块 | 官方规格 / 本工程用法 |
-| --- | --- |
-| 主控 | ESP32-S3，双核 Xtensa LX7，最高 240 MHz |
-| 存储 | 16 MB Flash、8 MB Octal PSRAM；PSRAM 同时承载 Slint 和无线动态分配 |
-| 圆形屏幕 | 1.85 英寸、360 × 360、ST77916、QSPI、RGB565 |
-| 触摸 | CST816S 电容触摸，I2C 地址 `0x15`，中断 GPIO4 |
-| RTC | PCF85063，I2C 地址 `0x51` |
-| IO 扩展 | TCA9554PWR，I2C 地址 `0x20`；LCD 复位 EXIO2，触摸复位 EXIO1 |
-| 无线 | 2.4 GHz WiFi 与 Bluetooth LE；本工程使用 `esp-radio` |
-| 总线 | I2C GPIO11/GPIO10；LCD QSPI GPIO40、GPIO46/45/42/41、CS GPIO21；背光 GPIO5 |
+| 模块     | 官方规格 / 本工程用法                                                      |
+| -------- | -------------------------------------------------------------------------- |
+| 主控     | ESP32-S3，双核 Xtensa LX7，最高 240 MHz                                    |
+| 存储     | 16 MB Flash、8 MB Octal PSRAM；PSRAM 同时承载 Slint 和无线动态分配         |
+| 圆形屏幕 | 1.85 英寸、360 × 360、ST77916、QSPI、RGB565                               |
+| 触摸     | CST816S 电容触摸，I2C 地址`0x15`，中断 GPIO4                             |
+| RTC      | PCF85063，I2C 地址`0x51`                                                 |
+| IO 扩展  | TCA9554PWR，I2C 地址`0x20`；LCD 复位 EXIO2，触摸复位 EXIO1               |
+| 无线     | 2.4 GHz WiFi 与 Bluetooth LE；本工程使用`esp-radio`                      |
+| 总线     | I2C GPIO11/GPIO10；LCD QSPI GPIO40、GPIO46/45/42/41、CS GPIO21；背光 GPIO5 |
 
 ### 板载 WiFi / 蓝牙配置门户
 
 固件启动后可以提供一个用于配网的开放 SoftAP，但默认关闭。需要使用配置门户时，
 先在设备的 `WiFi 控制` 页面开启 AP：
 
-| 项目 | 值 |
-| --- | --- |
-| WiFi 名称 | `ESP32-S3-配置` |
-| WiFi 密码 | 无密码 |
-| 配置地址 | `http://192.168.4.1/` |
+| 项目      | 值                      |
+| --------- | ----------------------- |
+| WiFi 名称 | `ESP32-S3-配置`       |
+| WiFi 密码 | 无密码                  |
+| 配置地址  | `http://192.168.4.1/` |
 
 开启 AP 后，使用手机或电脑连接配置网络，然后在浏览器打开配置地址。网页可以提交
 目标 WiFi 名称、密码、蓝牙广播名称以及蓝牙开关。WiFi 提交后，设备在后台尝试连接
@@ -168,23 +173,24 @@ IP、WiFi 扫描无结果。本工程现在已改为异步定时器。
 ### 屏幕无线配置窗口
 
 右滑进入菜单后，`WiFi 配置` 和 `蓝牙配置` 都提供独立的触摸窗口：
+
 - WiFi：启动 `esp-radio` 硬件扫描，Station 接口开启时保持当前 AP/STA 模式不变；
   每次扫描最多请求 8 个热点，10 秒超时。屏幕 WiFi 列表使用 `Flickable`，结果
   超过可视区域时可以上下滑动，选择热点后进入大尺寸可滚动密码键盘。
 - 蓝牙：启动 TrouBLE Central 被动扫描，扫描窗口为 5 秒，最多保存 12 个广播
   设备及地址 / RSSI。被动扫描可发现不响应主动扫描请求的设备；选择设备后进入
   六位数字配对码窗口。
-- WiFi / BLE 扫描与配对结果通过 `src/features/config.rs` 的固定容量快照在无线
+- WiFi / BLE 扫描与配对结果通过 `bsp/src/features/config.rs` 的固定容量快照在无线
   任务和 Slint 主循环之间传递，后台任务不直接访问 Slint 对象。
 - 功能菜单、WiFi / BLE 列表和密码键盘均支持触摸上下滑动；菜单按钮、导航按钮和
   键盘按钮在按下期间会改变背景和边框颜色，提供明确的点击反馈。
 - AP 侧使用 `embassy-net::udp::UdpSocket` 和 `edge-dhcp` 协议层直接提供 DHCP，
   地址池为 `192.168.4.50–192.168.4.200`，因此连接 SoftAP 的设备可以正常获得
   `192.168.4.x` 地址并访问 `http://192.168.4.1/`。
-运行时通过网页提交的 WiFi 凭据和 BLE bond 仍不写入 Flash。若需设备开机自动连接，
-编辑 `src/features/config.rs` 中的 `BOOT_WIFI_SSID` 与 `BOOT_WIFI_PASSWORD`，然后重新
-编译并烧录；SSID 为空时关闭开机自动连接。凭据会直接编译进固件，请勿将真实密码提交
-到公共仓库。
+  运行时通过网页提交的 WiFi 凭据和 BLE bond 仍不写入 Flash。若需设备开机自动连接，
+  编辑 `bsp/src/features/config.rs` 中的 `BOOT_WIFI_SSID` 与 `BOOT_WIFI_PASSWORD`，然后重新
+  编译并烧录；SSID 为空时关闭开机自动连接。凭据会直接编译进固件，请勿将真实密码提交
+  到公共仓库。
 
 配置示例：
 
@@ -194,7 +200,7 @@ pub(crate) const BOOT_WIFI_PASSWORD: &str = "your-wifi-password";
 ```
 
 BLE Security Manager 使用 ESP32-S3 的 `RNG + ADC1` 熵源初始化随机种子，
-`src/board/mod.rs` 保留 `TrngSource` 的生命周期，直到主循环结束。
+`bsp/src/board/mod.rs` 保留 `TrngSource` 的生命周期，直到主循环结束。
 
 ## 环境要求
 
@@ -239,7 +245,12 @@ cargo +esp build --release
 xtensa-esp32s3-none-elf
 ```
 
-因此不需要额外传递 `--target`。构建脚本会先把 `ui/main.slint` 编译为 Rust 代码，并使用 `EmbedForSoftwareRenderer` 嵌入 Slint 软件渲染资源。
+因此不需要额外传递 `--target`。构建脚本会先把 `ui/main.slint` 编译为 Rust 代码，并使用 `EmbedForSoftwareRenderer` 嵌入 Slint 软件渲染资源。板级驱动也可以独立检查：
+
+```powershell
+cargo +esp check -p esp_slint_bsp
+cargo +esp check -p esp_slint_bsp --features full
+```
 
 固件产物：
 
@@ -271,13 +282,12 @@ Windows 命令行中建议使用 `/` 作为固件路径分隔符，避免某些 
 espflash flash --skip-update-check --port COM3 --chip esp32s3 --flash-size 16mb --monitor target/xtensa-esp32s3-none-elf/release/esp_slint
 ```
 
-固件启用 `esp-println` 日志。应用层日志通过 `esp_println::println!` 直接输出到
+固件启用 `esp-println` 日志。应用层和 BSP 层日志通过 `esp_println::println!` 直接输出到
 `espflash monitor` 使用的 UART / USB JTAG 通道，日志行包含
-`[INFO][esp_slint::...]`、`[WARN][esp_slint::...]` 等级和模块前缀。
-`esp_println::logger::init_logger_from_env()` 仍保留用于 `esp-radio` 等依赖的
-`log` 日志；`ESP_LOG` 只过滤依赖日志，不会隐藏应用层的 ESP 直出日志。串口监视器
-可以观察启动、板级初始化、DHCP、WiFi 连接与扫描、BLE 配对与扫描、RTC 和 UI 状态；
-如果需要重新编译、烧录或使用其他串口工具，先关闭占用 `COM3` 的监视器。
+`[INFO][esp_slint::...]` 或 `[INFO][esp_slint_bsp::...]` 等级和模块前缀。`esp_println::logger::init_logger_from_env()`
+仍保留用于 `esp-radio` 等依赖的 `log` 日志；`ESP_LOG` 只过滤依赖日志，不会隐藏应用层的
+ESP 直出日志。串口监视器可以观察启动、板级初始化、DHCP、WiFi 连接与扫描、BLE 配对与扫描、
+RTC 和 UI 状态；如果需要重新编译、烧录或使用其他串口工具，先关闭占用 `COM3` 的监视器。
 
 也可以使用 `.cargo/config.toml` 中的 runner：
 
@@ -292,9 +302,9 @@ cargo +esp run --release
 当前 UI 由 `ui/main.slint` 统一导出 `MainWindow`，并拆分为以下模块：
 
 - `ui/state.slint`：集中维护 `AppState` 全局状态；`MainWindow` 通过双向属性绑定保持
-Rust 端属性 API 稳定，Rust 回调统一注册到导出的 `AppState` 全局单例；
+  Rust 端属性 API 稳定，Rust 回调统一注册到导出的 `AppState` 全局单例；
 - `ui/components/controls.slint`：共享的 `MenuItem`、`NavButton` 和 `KeyButton`；
-- `ui/pages/home.slint` 与 `UI参考_360x360_clean.png`：按 360 × 360 参考图复刻的时钟主页,仅日期、时间和秒数由运行时覆盖;
+- `ui/pages/home.slint` 与 `docs/UI参考_360x360_clean.png`：按 360 × 360 参考图复刻的时钟主页,仅日期、时间和秒数由运行时覆盖;
 - `ui/pages/menu.slint`、`touch.slint`、`motion.slint`、`performance.slint`：基础功能页；
 - `ui/pages/wifi_*.slint`、`ble_*.slint`：WiFi 和蓝牙控制、扫描、输入页面；
 - `ui/pages/menu_shell.slint`：页面路由和左右滑动返回逻辑。

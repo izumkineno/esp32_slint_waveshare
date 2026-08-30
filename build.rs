@@ -1,6 +1,6 @@
 fn main() {
     println!("cargo:rerun-if-changed=ui");
-    println!("cargo:rerun-if-changed=UI参考_360x360_clean.png");
+    println!("cargo:rerun-if-changed=docs/UI参考_360x360_clean.png");
     slint_build::compile_with_config(
         "ui/main.slint",
         slint_build::CompilerConfiguration::new()

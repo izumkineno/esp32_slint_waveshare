@@ -4,11 +4,13 @@
 
 ## 1. 复用边界
 
-当前工程是单个 binary crate，入口通过 `#[path]` 引入各层源码。除 Slint 导出组件外，这些模块尚未发布成独立 crate；部分接口还是 `pub(crate)` 或私有接口。因此本文中的“复用”主要指：
+当前 workspace 包含应用 package 和独立的 `bsp` library crate。应用通过
+`esp_slint_bsp` 依赖访问板级驱动、无线任务、共享状态和设备日志；UI 与页面逻辑
+仍位于根 package。本文中的“复用”指将 BSP crate 作为路径依赖，或按实际边界迁移其源码。
 
-1. 在同一工程内直接组合现有模块；
-2. 将对应源码文件和依赖一起迁移到结构相近的工程；
-3. 若要供其他 crate 依赖，先提取为 library crate，并按实际边界调整可见性。
+1. 在同一 workspace 中通过 `esp_slint_bsp` 路径依赖组合现有模块；
+2. 将 BSP crate 作为路径依赖迁移到结构相近的工程；
+3. 若要调整板级协议或引脚，按实际硬件边界修改对应驱动和初始化顺序。
 
 复用等级：
 
@@ -20,31 +22,32 @@
 
 | 模块 | 复用等级 | 主要入口 | 关键约束 |
 | --- | --- | --- | --- |
-| [`src/logging.rs`](../src/logging.rs) | 直接复用 | `esp_trace!`、`esp_debug!`、`esp_info!`、`esp_warn!`、`esp_error!` | 依赖 `esp-println`；日志不受 `ESP_LOG` 过滤 |
-| [`src/drivers/display/panel_init.rs`](../src/drivers/display/panel_init.rs) | 组合复用 | `iter()`、`DEFAULT`、`NEW` | 仅适用于当前 ST77916 初始化表；接口当前为 `pub(crate)` |
-| [`src/drivers/display/mod.rs`](../src/drivers/display/mod.rs) | 硬件适配 | `init()`、`St77916Display::write_line()` | 固定 ST77916、360 × 360、当前 QSPI 引脚和 RGB565 |
-| [`src/drivers/touch/mod.rs`](../src/drivers/touch/mod.rs) | 硬件适配 | `Cst816Touch::new()`、`read()` | 固定 CST816S、I2C `0x15`、360 × 360 单点触摸 |
-| [`src/drivers/rtc.rs`](../src/drivers/rtc.rs) | 组合复用 | `DateTime`、`init()`、`read_time()`、`write_time()` | PCF85063 通过触摸驱动持有的共享 I2C 总线访问 |
-| [`src/drivers/tca9554.rs`](../src/drivers/tca9554.rs) | 硬件适配 | `configure()`、`write_output()` | 固定地址 `0x20` 和当前 LCD/触摸复位位 |
+| [`bsp/src/logging.rs`](../bsp/src/logging.rs) | 直接复用 | `esp_trace!`、`esp_debug!`、`esp_info!`、`esp_warn!`、`esp_error!` | 依赖 `esp-println`；日志不受 `ESP_LOG` 过滤 |
+| [`bsp/src/drivers/display/panel_init.rs`](../bsp/src/drivers/display/panel_init.rs) | 组合复用 | `iter()`、`DEFAULT`、`NEW` | 仅适用于当前 ST77916 初始化表；接口当前为 `pub(crate)` |
+| [`bsp/src/drivers/display/mod.rs`](../bsp/src/drivers/display/mod.rs) | 硬件适配 | `init()`、`St77916Display::write_line()` | 固定 ST77916、360 × 360、当前 QSPI 引脚和 RGB565 |
+| [`bsp/src/drivers/touch/mod.rs`](../bsp/src/drivers/touch/mod.rs) | 硬件适配 | `Cst816Touch::new()`、`read()` | 固定 CST816S、I2C `0x15`、360 × 360 单点触摸 |
+| [`bsp/src/drivers/rtc.rs`](../bsp/src/drivers/rtc.rs) | 组合复用 | `DateTime`、`init()`、`read_time()`、`write_time()` | PCF85063 通过触摸驱动持有的共享 I2C 总线访问 |
+| [`bsp/src/drivers/tca9554.rs`](../bsp/src/drivers/tca9554.rs) | 硬件适配 | `configure()`、`write_output()` | 固定地址 `0x20` 和当前 LCD/触摸复位位 |
 | [`src/ui/platform.rs`](../src/ui/platform.rs) | 组合复用 | `install_platform()`、`DisplayLineBuffer` | Slint software renderer；输出目标是 `St77916Display` |
 | [`src/ui_logic/input.rs`](../src/ui_logic/input.rs) | 组合复用 | `poll_touch()`、`SwipeDirection` | 依赖 CST816S 和 `MinimalSoftwareWindow`；滑动阈值固定 |
-| [`src/features/config.rs`](../src/features/config.rs) | 组合复用 | `request_*`、`take_*`、`copy_*`、`finish_*` | `critical-section` 固定容量状态通道；多数接口为 `pub(crate)` |
-| [`src/features/time_sync.rs`](../src/features/time_sync.rs) | 组合复用 | Embassy task `run()` | 依赖可用的 Station `Stack`、DNS、UDP/123 和 `config` 时间戳通道 |
-| [`src/features/wifi_portal.rs`](../src/features/wifi_portal.rs) | 组合复用 | `start()` | 同时包含 WiFi 控制、AP/STA、DHCP、HTTP 门户、扫描和 NTP 任务编排 |
-| [`src/features/bluetooth.rs`](../src/features/bluetooth.rs) | 组合复用 | `start()` | TrouBLE Central + Peripheral；依赖全局 TRNG 和 `config` 状态通道 |
+| [`bsp/src/features/config.rs`](../bsp/src/features/config.rs) | 组合复用 | `request_*`、`take_*`、`copy_*`、`finish_*` | `critical-section` 固定容量状态通道；跨 crate 使用的快照 API 为 `pub` |
+| [`bsp/src/features/time_sync.rs`](../bsp/src/features/time_sync.rs) | 组合复用 | Embassy task `run()` | 依赖可用的 Station `Stack`、DNS、UDP/123 和 `config` 时间戳通道 |
+| [`bsp/src/features/wifi_portal.rs`](../bsp/src/features/wifi_portal.rs) | 组合复用 | `start()` | 同时包含 WiFi 控制、AP/STA、DHCP、HTTP 门户、扫描和 NTP 任务编排 |
+| [`bsp/src/features/bluetooth.rs`](../bsp/src/features/bluetooth.rs) | 组合复用 | `start()` | TrouBLE Central + Peripheral；依赖全局 TRNG 和 `config` 状态通道 |
 | [`src/ui_logic/clock.rs`](../src/ui_logic/clock.rs) | 硬件适配 | `initialize_rtc()`、`refresh_rtc()`、`apply_network_time()` | 直接依赖生成的 `MainWindow`、RTC、触摸总线和 UTC 配置 |
 | [`ui/state.slint`](../ui/state.slint) | 组合复用 | `AppState`、`StateRoot`、`PageFrame` | 状态字段覆盖当前整套应用；页面基准固定为圆形 360 × 360 |
 | [`ui/components/controls.slint`](../ui/components/controls.slint) | 直接复用 | `MenuItem`、`NavButton`、`KeyButton` | 尺寸和颜色按当前圆屏设计；可通过属性覆盖部分尺寸 |
 | [`ui/pages/`](../ui/pages) | 组合复用 | 各文件导出的 `*Page` | 页面依赖 `AppState`、`PageFrame`，部分页面还依赖共享 controls |
 | [`build.rs`](../build.rs) | 组合复用 | `slint_build::compile_with_config()` | Slint 资源按 software renderer 方式嵌入 |
 
-[`src/board/mod.rs`](../src/board/mod.rs) 和 [`src/bin/main.rs`](../src/bin/main.rs) 是组合根，不应作为通用库直接复制。它们适合作为正确初始化顺序和模块接线的参考模板。
+[`src/main.rs`](../src/main.rs) 是应用组合根；[`bsp/src/board/mod.rs`](../bsp/src/board/mod.rs)
+是 BSP 的板级组合根。二者分别负责应用生命周期和硬件初始化，不应互相复制。
 
 ## 3. 基础设施模块
 
 ### 3.1 直出日志
 
-[`src/logging.rs`](../src/logging.rs) 提供五个带日志等级和 `module_path!()` 的宏。输出直接走 `esp_println::println!`，与 `espflash monitor` 使用同一 UART 或 USB JTAG 通道。
+[`bsp/src/logging.rs`](../bsp/src/logging.rs) 提供五个带日志等级和 `module_path!()` 的宏。输出直接走 `esp_println::println!`，与 `espflash monitor` 使用同一 UART 或 USB JTAG 通道。
 
 适合复用的场景：
 
@@ -54,7 +57,7 @@
 接入要求：
 
 - 保留 `esp-println` 依赖；
-- 在使用这些宏的模块可见之前，将 `logging.rs` 纳入 crate；
+- 应用 crate 添加 `esp_slint_bsp` 路径依赖并从该 crate 导入日志宏；
 - 若需要运行时等级过滤，应另加过滤层，当前宏不会过滤。
 
 ### 3.2 Slint 构建脚本
@@ -74,10 +77,10 @@
 
 复用文件组：
 
-- [`src/drivers/display/mod.rs`](../src/drivers/display/mod.rs)
-- [`src/drivers/display/panel_init.rs`](../src/drivers/display/panel_init.rs)
-- [`src/drivers/tca9554.rs`](../src/drivers/tca9554.rs)
-- [`src/drivers/touch/mod.rs`](../src/drivers/touch/mod.rs)
+- [`bsp/src/drivers/display/mod.rs`](../bsp/src/drivers/display/mod.rs)
+- [`bsp/src/drivers/display/panel_init.rs`](../bsp/src/drivers/display/panel_init.rs)
+- [`bsp/src/drivers/tca9554.rs`](../bsp/src/drivers/tca9554.rs)
+- [`bsp/src/drivers/touch/mod.rs`](../bsp/src/drivers/touch/mod.rs)
 
 `display::init(DisplayPeripherals)` 一次性取得 I2C、SPI 和 GPIO 所有权，返回：
 
@@ -111,7 +114,7 @@
 
 ### 4.2 紧凑 panel 初始化表
 
-[`src/drivers/display/panel_init.rs`](../src/drivers/display/panel_init.rs) 将 vendor 命令编码为紧凑字节流：
+[`bsp/src/drivers/display/panel_init.rs`](../bsp/src/drivers/display/panel_init.rs) 将 vendor 命令编码为紧凑字节流：
 
 ```text
 command, data_len | 0x80_if_delay, data..., delay_ms_le_if_present
@@ -121,7 +124,7 @@ command, data_len | 0x80_if_delay, data..., delay_ms_le_if_present
 
 ### 4.3 CST816S 触摸
 
-[`src/drivers/touch/mod.rs`](../src/drivers/touch/mod.rs) 提供：
+[`bsp/src/drivers/touch/mod.rs`](../bsp/src/drivers/touch/mod.rs) 提供：
 
 - `Cst816Touch::new(i2c, interrupt_pin)`：读取 chip ID、关闭自动休眠并持有 I2C；
 - `Cst816Touch::read()`：读取第一个触点，返回 `Result<Option<TouchPoint>, Error>`；
@@ -131,7 +134,7 @@ command, data_len | 0x80_if_delay, data..., delay_ms_le_if_present
 
 ### 4.4 PCF85063 RTC 与日期时间
 
-[`src/drivers/rtc.rs`](../src/drivers/rtc.rs) 包含两层能力：
+[`bsp/src/drivers/rtc.rs`](../bsp/src/drivers/rtc.rs) 包含两层能力：
 
 1. `DateTime` 的纯时间转换：`is_valid()`、`from_unix_seconds()`、`to_unix_seconds()`、`with_utc_offset()`；
 2. PCF85063 I2C 操作：`init()`、`read_time()`、`write_time()`。
@@ -142,7 +145,7 @@ RTC 地址固定为 `0x51`。硬件访问参数目前是 `&mut Cst816Touch`，�
 
 ### 4.5 TCA9554 GPIO 扩展器
 
-[`src/drivers/tca9554.rs`](../src/drivers/tca9554.rs) 只封装当前板需要的两项操作：
+[`bsp/src/drivers/tca9554.rs`](../bsp/src/drivers/tca9554.rs) 只封装当前板需要的两项操作：
 
 - `configure()`：将全部 IO 配为输出并清零；
 - `write_output()`：一次写入完整输出寄存器。
@@ -189,7 +192,7 @@ window.draw_if_needed(|renderer| {
 
 ## 6. 后台任务共享状态
 
-[`src/features/config.rs`](../src/features/config.rs) 是 UI 主循环与 Embassy 无线任务之间的无 Slint 依赖桥梁。所有共享值存放在 `critical_section::Mutex<RefCell<_>>` 中，跨任务只复制固定容量结构，不把 Slint 对象传入后台任务。
+[`bsp/src/features/config.rs`](../bsp/src/features/config.rs) 是 UI 主循环与 Embassy 无线任务之间的无 Slint 依赖桥梁。所有共享值存放在 `critical_section::Mutex<RefCell<_>>` 中，跨任务只复制固定容量结构，不把 Slint 对象传入后台任务。
 
 ### 6.1 通道类型
 
@@ -219,7 +222,7 @@ window.draw_if_needed(|renderer| {
 
 ### 7.1 WiFi 配置门户
 
-[`src/features/wifi_portal.rs`](../src/features/wifi_portal.rs) 的 `start(spawner, WIFI)` 一次启动：
+[`bsp/src/features/wifi_portal.rs`](../bsp/src/features/wifi_portal.rs) 的 `start(spawner, WIFI)` 一次启动：
 
 - `esp-radio` WiFi controller；
 - AP 与 Station 两个 Embassy network runner；
@@ -246,7 +249,7 @@ window.draw_if_needed(|renderer| {
 
 ### 7.2 Bluetooth LE
 
-[`src/features/bluetooth.rs`](../src/features/bluetooth.rs) 同时实现：
+[`bsp/src/features/bluetooth.rs`](../bsp/src/features/bluetooth.rs) 同时实现：
 
 - Peripheral 广播和 Battery Service GATT server；
 - Central 被动扫描；
@@ -261,11 +264,11 @@ window.draw_if_needed(|renderer| {
 - 广播名称最大 32 字节，并按 advertising data 空间进一步截断；
 - 需要提前初始化并保持 ESP TRNG source 生命周期。
 
-该模块依赖 `esp-radio`、`trouble-host`、`bt-hci`、Embassy 和 [`config.rs`](../src/features/config.rs)。只复制 `bluetooth.rs` 会缺少命令通道、扫描快照和板级随机源初始化。
+该模块依赖 `esp-radio`、`trouble-host`、`bt-hci`、Embassy 和 [`config.rs`](../bsp/src/features/config.rs)。只复制 `bluetooth.rs` 会缺少命令通道、扫描快照和板级随机源初始化。
 
 ### 7.3 NTP 时间同步
 
-[`src/features/time_sync.rs`](../src/features/time_sync.rs) 导出 Embassy task `run(Stack<'static>)`。任务在网络 link 和 DHCP 配置就绪后依次尝试多个 NTP server：
+[`bsp/src/features/time_sync.rs`](../bsp/src/features/time_sync.rs) 导出 Embassy task `run(Stack<'static>)`。任务在网络 link 和 DHCP 配置就绪后依次尝试多个 NTP server：
 
 - DNS 超时 5 秒；
 - NTP 响应超时 8 秒；
@@ -348,26 +351,26 @@ cargo run --release --manifest-path ../slint/tools/viewer/Cargo.toml -- `
 
 迁移：
 
-- `drivers/display`、`drivers/touch`、`drivers/tca9554`
+- [`bsp/src/drivers/display`](../bsp/src/drivers/display)、[`bsp/src/drivers/touch`](../bsp/src/drivers/touch)、[`bsp/src/drivers/tca9554.rs`](../bsp/src/drivers/tca9554.rs)
 - [`src/ui/platform.rs`](../src/ui/platform.rs)
 - [`src/ui_logic/input.rs`](../src/ui_logic/input.rs)
-- [`src/logging.rs`](../src/logging.rs)
+- [`bsp/src/logging.rs`](../bsp/src/logging.rs)
 
 需要保持 RGB565、360 像素行缓冲、`RepaintBufferType::ReusedBuffer` 和当前设备引脚一致；换板时以 `DisplayPeripherals` 为集中修改点。
 
 ### 9.3 复用 RTC + NTP 校时
 
-硬件侧迁移 `drivers/rtc`；网络侧迁移 `features/time_sync`。两者当前通过 `features/config` 的单槽 Unix timestamp 通道解耦。若不使用触摸驱动持有共享 I2C，应先把 RTC 参数改为独立 I2C 抽象。
+硬件侧迁移 `bsp/src/drivers/rtc`；网络侧迁移 `bsp/src/features/time_sync`。两者当前通过 `bsp/src/features/config` 的单槽 Unix timestamp 通道解耦。若不使用触摸驱动持有共享 I2C，应先把 RTC 参数改为独立 I2C 抽象。
 
 ### 9.4 复用完整无线配置能力
 
 至少一起迁移：
 
-- [`src/features/config.rs`](../src/features/config.rs)
-- [`src/features/wifi_portal.rs`](../src/features/wifi_portal.rs)
-- [`src/features/time_sync.rs`](../src/features/time_sync.rs)
-- [`src/features/bluetooth.rs`](../src/features/bluetooth.rs)
-- [`src/board/mod.rs`](../src/board/mod.rs) 中的 allocator、TRNG、RTOS 启动顺序
+- [`bsp/src/features/config.rs`](../bsp/src/features/config.rs)
+- [`bsp/src/features/wifi_portal.rs`](../bsp/src/features/wifi_portal.rs)
+- [`bsp/src/features/time_sync.rs`](../bsp/src/features/time_sync.rs)
+- [`bsp/src/features/bluetooth.rs`](../bsp/src/features/bluetooth.rs)
+- [`bsp/src/board/mod.rs`](../bsp/src/board/mod.rs) 中的 allocator、TRNG、RTOS 启动顺序
 
 WiFi 与 BLE 共存依赖 `esp-radio` 的 `coex` feature。后台无线任务不得调用 Slint API。
 
@@ -399,7 +402,7 @@ WiFi 与 BLE 共存依赖 `esp-radio` 的 `coex` feature。后台无线任务不
 - `trouble-host = 0.6.0`；
 - `slint = 1.16.0`、`slint-build = 1.16.0`。
 
-Slint 启用了 `unsafe-single-threaded`。所有 Slint API 必须留在当前单线程 UI 主循环；无线任务只能通过 [`config.rs`](../src/features/config.rs) 交换普通数据。
+Slint 启用了 `unsafe-single-threaded`。所有 Slint API 必须留在当前单线程 UI 主循环；无线任务只能通过 [`config.rs`](../bsp/src/features/config.rs) 交换普通数据。
 
 ## 12. 迁移检查清单
 

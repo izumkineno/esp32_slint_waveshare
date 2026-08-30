@@ -1,4 +1,4 @@
-use crate::drivers::touch::Cst816Touch;
+use esp_slint_bsp::drivers::touch::Cst816Touch;
 use slint::{
     platform::{software_renderer::MinimalSoftwareWindow, PointerEventButton, WindowEvent},
     LogicalPosition, PhysicalPosition,

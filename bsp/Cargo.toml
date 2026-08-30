@@ -1,0 +1,84 @@
+[package]
+name = "esp_slint_bsp"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+description = "Board support package for ESP32-S3-Touch-LCD-1.85C"
+license = "MIT"
+keywords = ["esp32", "bsp", "st77916", "cst816"]
+
+[dependencies]
+critical-section = "1.2.0"
+embassy-executor = "0.10.0"
+embassy-futures = { version = "0.1", optional = true }
+embassy-net = { version = "0.8.0", features = [
+    "dhcpv4",
+    "medium-ethernet",
+    "tcp",
+    "dns",
+    "udp",
+], optional = true }
+embassy-sync = { version = "0.7", optional = true }
+embassy-time = { version = "0.5.0", optional = true }
+edge-dhcp = { version = "0.7.0", default-features = false, optional = true }
+embedded-io-async = { version = "0.7", optional = true }
+esp-alloc = "0.10.0"
+esp-bootloader-esp-idf = { version = "0.5.0", features = ["esp32s3"] }
+esp-hal = { version = "1.1.1", features = ["esp32s3", "unstable"] }
+esp-println = { version = "0.17.0", features = ["esp32s3", "log-04"] }
+esp-radio = { version = "0.18.0", features = [
+    "esp32s3",
+    "wifi",
+    "ble",
+    "coex",
+    "unstable",
+    "log-04",
+], optional = true }
+esp-rtos = { version = "0.3.0", features = [
+    "esp32s3",
+    "esp-radio",
+    "embassy",
+    "log-04",
+], optional = true }
+slint = { version = "=1.16.0", default-features = false, features = [
+    "compat-1-2",
+    "unsafe-single-threaded",
+    "libm",
+    "renderer-software",
+] }
+static_cell = { version = "2.1.1", optional = true }
+trouble-host = { version = "0.6.0", features = [
+    "default-packet-pool-mtu-255",
+    "derive",
+    "scan",
+    "security",
+    "log",
+], optional = true }
+bt-hci = { version = "0.8", optional = true }
+
+[features]
+default = []
+wifi = [
+    "dep:esp-radio",
+    "dep:esp-rtos",
+    "dep:embassy-net",
+    "dep:embassy-futures",
+    "dep:embassy-sync",
+    "dep:embassy-time",
+    "dep:embedded-io-async",
+    "dep:edge-dhcp",
+    "dep:static_cell",
+    "dep:trouble-host",
+]
+ble = [
+    "dep:esp-radio",
+    "dep:esp-rtos",
+    "dep:embassy-sync",
+    "dep:embassy-futures",
+    "dep:embassy-time",
+    "dep:bt-hci",
+    "dep:static_cell",
+    "dep:trouble-host",
+]
+full = ["wifi", "ble"]
+

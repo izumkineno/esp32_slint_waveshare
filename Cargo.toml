@@ -1,63 +1,40 @@
+[workspace]
+members = ["bsp"]
+
 [package]
 edition      = "2021"
 name         = "esp_slint"
 rust-version = "1.88"
 version      = "0.1.0"
-build         = "build.rs"
-
-[[bin]]
-name = "esp_slint"
-path = "./src/bin/main.rs"
-test = false
+build        = "build.rs"
+autoexamples = false
 
 [dependencies]
-critical-section = "1.2.0"
-edge-dhcp = { version = "0.7.0", default-features = false }
 embassy-executor = "0.10.0"
-embassy-futures = "0.1"
-embassy-net = { version = "0.8.0", features = [
-    "dhcpv4",
-    "medium-ethernet",
-    "tcp",
-    "dns",
-    "udp",
-] }
-bt-hci = "0.8"
-embassy-sync = "0.7"
 embassy-time = "0.5.0"
-embedded-io-async = "0.7"
-esp-radio = { version = "0.18.0", features = [
-    "esp32s3",
-    "wifi",
-    "ble",
-    "coex",
-    "unstable",
-    "log-04",
-] }
+esp-alloc = "0.10.0"
+esp-bootloader-esp-idf = { version = "0.5.0", features = ["esp32s3"] }
+esp-hal = { version = "1.1.1", features = ["esp32s3", "unstable"] }
+esp-println = { version = "0.17.0", features = ["esp32s3", "log-04"] }
 esp-rtos = { version = "0.3.0", features = [
     "esp32s3",
     "esp-radio",
     "embassy",
     "log-04",
 ] }
-static_cell = "2.1.1"
-trouble-host = { version = "0.6.0", features = [
-    "default-packet-pool-mtu-255",
-    "derive",
-    "scan",
-    "security",
-    "log",
- ] }
-esp-alloc            = "0.10.0"
-esp-bootloader-esp-idf = { version = "0.5.0", features = ["esp32s3"] }
-esp-hal              = { version = "1.1.1", features = ["esp32s3", "unstable"] }
-esp-println          = { version = "0.17.0", features = ["esp32s3", "log-04"] }
-slint               = { version = "=1.16.0", default-features = false, features = [
+esp_slint_bsp = { path = "bsp" }
+slint = { version = "=1.16.0", default-features = false, features = [
     "compat-1-2",
     "unsafe-single-threaded",
     "libm",
     "renderer-software",
 ] }
+
+[features]
+default = ["wifi", "ble"]
+wifi = ["esp_slint_bsp/wifi"]
+ble = ["esp_slint_bsp/ble"]
+full = ["wifi", "ble"]
 
 [build-dependencies]
 slint-build = "=1.16.0"

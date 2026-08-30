@@ -9,13 +9,12 @@ use esp_hal::{
     timer::timg::TimerGroup,
 };
 
-use crate::{
-    drivers::{
-        display::{self, DisplayPeripherals, St77916Display},
-        touch::Cst816Touch,
-    },
-    features,
+use crate::drivers::{
+    display::{self, DisplayPeripherals, St77916Display},
+    touch::Cst816Touch,
 };
+#[cfg(any(feature = "wifi", feature = "ble"))]
+use crate::features;
 
 pub fn init(
     peripherals: Peripherals,
@@ -54,12 +53,19 @@ pub fn init(
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     let sw_int = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
+    #[cfg(any(feature = "wifi", feature = "ble"))]
     esp_rtos::start(timg0.timer0, sw_int.software_interrupt0);
+    #[cfg(any(feature = "wifi", feature = "ble"))]
     crate::esp_info!("BOARD: Embassy RTOS started");
 
+    #[cfg(feature = "wifi")]
     features::wifi_portal::start(spawner, peripherals.WIFI);
+    #[cfg(feature = "ble")]
     features::bluetooth::start(spawner, peripherals.BT);
+    #[cfg(any(feature = "wifi", feature = "ble"))]
     crate::esp_info!("BOARD: WiFi and BLE tasks spawned");
+    #[cfg(not(any(feature = "wifi", feature = "ble")))]
+    let _ = (timg0, sw_int, spawner);
 
     let (display, touch) = display::init(DisplayPeripherals {
         i2c0: peripherals.I2C0,

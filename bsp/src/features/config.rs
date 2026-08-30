@@ -3,41 +3,41 @@ use core::cell::RefCell;
 use critical_section::Mutex;
 use trouble_host::Address;
 
-pub(crate) const MAX_SCAN_RESULTS: usize = 12;
+pub const MAX_SCAN_RESULTS: usize = 12;
 
 // Set these values before building to enable a station connection at boot.
 // The credentials are embedded in the firmware image; leave the SSID empty to disable it.
-pub(crate) const BOOT_WIFI_SSID: &str = "CP";
-pub(crate) const BOOT_WIFI_PASSWORD: &str = "123456789";
-pub(crate) const DEFAULT_UTC_OFFSET_HOURS: i8 = 8;
+pub const BOOT_WIFI_SSID: &str = "CP";
+pub const BOOT_WIFI_PASSWORD: &str = "123456789";
+pub const DEFAULT_UTC_OFFSET_HOURS: i8 = 8;
 const MIN_UTC_OFFSET_HOURS: i8 = -12;
 const MAX_UTC_OFFSET_HOURS: i8 = 14;
 
-pub(crate) const WIFI_SCAN_IDLE: u8 = 0;
-pub(crate) const WIFI_SCAN_REQUESTED: u8 = 1;
-pub(crate) const WIFI_SCAN_RUNNING: u8 = 2;
-pub(crate) const WIFI_SCAN_READY: u8 = 3;
-pub(crate) const WIFI_SCAN_FAILED: u8 = 4;
+pub const WIFI_SCAN_IDLE: u8 = 0;
+pub const WIFI_SCAN_REQUESTED: u8 = 1;
+pub const WIFI_SCAN_RUNNING: u8 = 2;
+pub const WIFI_SCAN_READY: u8 = 3;
+pub const WIFI_SCAN_FAILED: u8 = 4;
 
-pub(crate) const WIFI_CONNECTION_DISABLED: u8 = 0;
-pub(crate) const WIFI_CONNECTION_DISCONNECTED: u8 = 1;
-pub(crate) const WIFI_CONNECTION_CONNECTING: u8 = 2;
-pub(crate) const WIFI_CONNECTION_CONNECTED: u8 = 3;
-pub(crate) const WIFI_CONNECTION_FAILED: u8 = 4;
+pub const WIFI_CONNECTION_DISABLED: u8 = 0;
+pub const WIFI_CONNECTION_DISCONNECTED: u8 = 1;
+pub const WIFI_CONNECTION_CONNECTING: u8 = 2;
+pub const WIFI_CONNECTION_CONNECTED: u8 = 3;
+pub const WIFI_CONNECTION_FAILED: u8 = 4;
 
-pub(crate) const BLE_SCAN_IDLE: u8 = 0;
-pub(crate) const BLE_SCAN_REQUESTED: u8 = 1;
-pub(crate) const BLE_SCAN_RUNNING: u8 = 2;
-pub(crate) const BLE_SCAN_READY: u8 = 3;
-pub(crate) const BLE_SCAN_FAILED: u8 = 4;
+pub const BLE_SCAN_IDLE: u8 = 0;
+pub const BLE_SCAN_REQUESTED: u8 = 1;
+pub const BLE_SCAN_RUNNING: u8 = 2;
+pub const BLE_SCAN_READY: u8 = 3;
+pub const BLE_SCAN_FAILED: u8 = 4;
 
-pub(crate) const BLE_PAIR_IDLE: u8 = 0;
-pub(crate) const BLE_PAIR_REQUESTED: u8 = 1;
-pub(crate) const BLE_PAIR_CONNECTING: u8 = 2;
-pub(crate) const BLE_PAIR_WAITING_INPUT: u8 = 3;
-pub(crate) const BLE_PAIR_PAIRED: u8 = 4;
-pub(crate) const BLE_PAIR_FAILED: u8 = 5;
-pub(crate) const BLE_PAIR_DISPLAY: u8 = 6;
+pub const BLE_PAIR_IDLE: u8 = 0;
+pub const BLE_PAIR_REQUESTED: u8 = 1;
+pub const BLE_PAIR_CONNECTING: u8 = 2;
+pub const BLE_PAIR_WAITING_INPUT: u8 = 3;
+pub const BLE_PAIR_PAIRED: u8 = 4;
+pub const BLE_PAIR_FAILED: u8 = 5;
+pub const BLE_PAIR_DISPLAY: u8 = 6;
 
 #[derive(Clone, Copy)]
 pub(crate) struct WifiCredentials {
@@ -94,12 +94,12 @@ impl WifiControlCommand {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) struct WifiStatusSnapshot {
-    pub(crate) ap_enabled: bool,
-    pub(crate) station_enabled: bool,
-    pub(crate) connection_state: u8,
-    pub(crate) connection_ssid: [u8; 32],
-    pub(crate) connection_ssid_len: usize,
+pub struct WifiStatusSnapshot {
+    pub ap_enabled: bool,
+    pub station_enabled: bool,
+    pub connection_state: u8,
+    pub connection_ssid: [u8; 32],
+    pub connection_ssid_len: usize,
 }
 
 impl WifiStatusSnapshot {
@@ -115,11 +115,11 @@ impl WifiStatusSnapshot {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct WifiScanEntry {
-    pub(crate) ssid: [u8; 32],
-    pub(crate) ssid_len: usize,
-    pub(crate) signal_strength: i8,
-    pub(crate) secured: bool,
+pub struct WifiScanEntry {
+    pub ssid: [u8; 32],
+    pub ssid_len: usize,
+    pub signal_strength: i8,
+    pub secured: bool,
 }
 
 impl WifiScanEntry {
@@ -134,10 +134,10 @@ impl WifiScanEntry {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct WifiScanSnapshot {
-    pub(crate) state: u8,
-    pub(crate) count: usize,
-    pub(crate) entries: [WifiScanEntry; MAX_SCAN_RESULTS],
+pub struct WifiScanSnapshot {
+    pub state: u8,
+    pub count: usize,
+    pub entries: [WifiScanEntry; MAX_SCAN_RESULTS],
 }
 
 impl WifiScanSnapshot {
@@ -169,7 +169,7 @@ pub(crate) fn store_wifi_command(credentials: WifiCredentials) {
     critical_section::with(|cs| *WIFI_COMMAND.borrow(cs).borrow_mut() = Some(credentials));
 }
 
-pub(crate) fn request_wifi_credentials(ssid: &str, password: &str) {
+pub fn request_wifi_credentials(ssid: &str, password: &str) {
     store_wifi_command(WifiCredentials::from_strings(ssid, password));
 }
 
@@ -177,21 +177,21 @@ pub(crate) fn take_wifi_command() -> Option<WifiCredentials> {
     critical_section::with(|cs| WIFI_COMMAND.borrow(cs).borrow_mut().take())
 }
 
-pub(crate) fn request_wifi_ap_state(enabled: bool) {
+pub fn request_wifi_ap_state(enabled: bool) {
     crate::esp_info!("WIFI: AP state requested: enabled={}", enabled);
     critical_section::with(|cs| {
         WIFI_CONTROL.borrow(cs).borrow_mut().ap_enabled = Some(enabled);
     });
 }
 
-pub(crate) fn request_wifi_station_state(enabled: bool) {
+pub fn request_wifi_station_state(enabled: bool) {
     crate::esp_info!("WIFI: station state requested: enabled={}", enabled);
     critical_section::with(|cs| {
         WIFI_CONTROL.borrow(cs).borrow_mut().station_enabled = Some(enabled);
     });
 }
 
-pub(crate) fn request_wifi_disconnect() {
+pub fn request_wifi_disconnect() {
     crate::esp_info!("WIFI: disconnect requested");
     critical_section::with(|cs| {
         WIFI_CONTROL.borrow(cs).borrow_mut().disconnect = true;
@@ -242,7 +242,7 @@ pub(crate) fn set_wifi_connection(state: u8, ssid: Option<&str>) {
     });
 }
 
-pub(crate) fn copy_wifi_status() -> WifiStatusSnapshot {
+pub fn copy_wifi_status() -> WifiStatusSnapshot {
     critical_section::with(|cs| *WIFI_STATUS_STATE.borrow(cs).borrow())
 }
 
@@ -253,7 +253,7 @@ pub(crate) fn publish_time_sync(timestamp: u64) {
     });
 }
 
-pub(crate) fn take_time_sync() -> Option<u64> {
+pub fn take_time_sync() -> Option<u64> {
     let timestamp = critical_section::with(|cs| TIME_SYNC_TIMESTAMP.borrow(cs).borrow_mut().take());
     if timestamp.is_some() {
         crate::esp_debug!("TIME: network timestamp consumed by UI");
@@ -261,11 +261,11 @@ pub(crate) fn take_time_sync() -> Option<u64> {
     timestamp
 }
 
-pub(crate) fn utc_offset_hours() -> i8 {
+pub fn utc_offset_hours() -> i8 {
     critical_section::with(|cs| *UTC_OFFSET_HOURS.borrow(cs).borrow())
 }
 
-pub(crate) fn adjust_utc_offset(delta: i32) -> i8 {
+pub fn adjust_utc_offset(delta: i32) -> i8 {
     let current = utc_offset_hours();
     let next = (i32::from(current) + delta).clamp(
         i32::from(MIN_UTC_OFFSET_HOURS),
@@ -280,7 +280,7 @@ pub(crate) fn adjust_utc_offset(delta: i32) -> i8 {
     next
 }
 
-pub(crate) fn reset_utc_offset() -> i8 {
+pub fn reset_utc_offset() -> i8 {
     critical_section::with(|cs| {
         *UTC_OFFSET_HOURS.borrow(cs).borrow_mut() = DEFAULT_UTC_OFFSET_HOURS;
     });
@@ -291,7 +291,7 @@ pub(crate) fn reset_utc_offset() -> i8 {
     DEFAULT_UTC_OFFSET_HOURS
 }
 
-pub(crate) fn request_wifi_scan() {
+pub fn request_wifi_scan() {
     crate::esp_info!("WIFI: scan request queued");
     critical_section::with(|cs| {
         let mut scan = WIFI_SCAN.borrow(cs).borrow_mut();
@@ -338,18 +338,18 @@ pub(crate) fn fail_wifi_scan() {
     });
 }
 
-pub(crate) fn copy_wifi_scan() -> WifiScanSnapshot {
+pub fn copy_wifi_scan() -> WifiScanSnapshot {
     critical_section::with(|cs| *WIFI_SCAN.borrow(cs).borrow())
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct BleScanEntry {
-    pub(crate) name: [u8; 32],
-    pub(crate) name_len: usize,
-    pub(crate) address: Option<Address>,
-    pub(crate) address_text: [u8; 17],
-    pub(crate) address_len: usize,
-    pub(crate) signal_strength: i8,
+pub struct BleScanEntry {
+    pub name: [u8; 32],
+    pub name_len: usize,
+    pub address: Option<Address>,
+    pub address_text: [u8; 17],
+    pub address_len: usize,
+    pub signal_strength: i8,
 }
 
 impl BleScanEntry {
@@ -366,10 +366,10 @@ impl BleScanEntry {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct BleScanSnapshot {
-    pub(crate) state: u8,
-    pub(crate) count: usize,
-    pub(crate) entries: [BleScanEntry; MAX_SCAN_RESULTS],
+pub struct BleScanSnapshot {
+    pub state: u8,
+    pub count: usize,
+    pub entries: [BleScanEntry; MAX_SCAN_RESULTS],
 }
 
 impl BleScanSnapshot {
@@ -389,10 +389,10 @@ pub(crate) struct BlePairRequest {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct BlePairSnapshot {
-    pub(crate) state: u8,
-    pub(crate) display_code: u32,
-    pub(crate) confirm_requested: bool,
+pub struct BlePairSnapshot {
+    pub state: u8,
+    pub display_code: u32,
+    pub confirm_requested: bool,
 }
 
 static BLE_SCAN: Mutex<RefCell<BleScanSnapshot>> =
@@ -405,7 +405,7 @@ static BLE_PAIR_STATE: Mutex<RefCell<BlePairSnapshot>> =
         confirm_requested: false,
     }));
 
-pub(crate) fn request_ble_scan() {
+pub fn request_ble_scan() {
     crate::esp_info!("BLE: scan request queued");
     critical_section::with(|cs| {
         let mut scan = BLE_SCAN.borrow(cs).borrow_mut();
@@ -475,11 +475,11 @@ pub(crate) fn fail_ble_scan() {
     });
 }
 
-pub(crate) fn copy_ble_scan() -> BleScanSnapshot {
+pub fn copy_ble_scan() -> BleScanSnapshot {
     critical_section::with(|cs| *BLE_SCAN.borrow(cs).borrow())
 }
 
-pub(crate) fn request_ble_pairing(index: usize, passkey: u32) -> bool {
+pub fn request_ble_pairing(index: usize, passkey: u32) -> bool {
     crate::esp_info!("BLE: pairing validation requested for index {}", index);
     critical_section::with(|cs| {
         if !BLE_SETTINGS.borrow(cs).borrow().enabled {
@@ -514,7 +514,7 @@ pub(crate) fn set_ble_pair_state(state: u8, display_code: u32) {
     });
 }
 
-pub(crate) fn request_ble_pair_confirmation() {
+pub fn request_ble_pair_confirmation() {
     crate::esp_info!("BLE: pairing confirmation queued");
     critical_section::with(|cs| {
         BLE_PAIR_STATE.borrow(cs).borrow_mut().confirm_requested = true;
@@ -530,7 +530,7 @@ pub(crate) fn take_ble_pair_confirmation() -> bool {
     })
 }
 
-pub(crate) fn copy_ble_pair_state() -> BlePairSnapshot {
+pub fn copy_ble_pair_state() -> BlePairSnapshot {
     critical_section::with(|cs| *BLE_PAIR_STATE.borrow(cs).borrow())
 }
 
@@ -567,12 +567,12 @@ pub(crate) fn update_ble_name(name: [u8; 32], length: usize) {
     });
 }
 
-pub(crate) fn set_ble_enabled(enabled: bool) {
+pub fn set_ble_enabled(enabled: bool) {
     crate::esp_info!("BLE: enabled={}", enabled);
     critical_section::with(|cs| BLE_SETTINGS.borrow(cs).borrow_mut().enabled = enabled);
 }
 
-pub(crate) fn copy_ble_enabled() -> bool {
+pub fn copy_ble_enabled() -> bool {
     critical_section::with(|cs| BLE_SETTINGS.borrow(cs).borrow().enabled)
 }
 
