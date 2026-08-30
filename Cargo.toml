@@ -50,9 +50,11 @@ opt-level = "s"
 
 [profile.release]
 codegen-units    = 1
-debug            = 2
+debug            = 0
+strip            = "debuginfo"
 debug-assertions = false
 incremental      = false
 lto              = "fat"
-opt-level        = "s"
+opt-level        = "z"
 overflow-checks  = false
+panic            = "abort"
